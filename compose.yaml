@@ -1,0 +1,34 @@
+services:
+  frontend:
+    build: 
+      context: ./frontend
+      dockerfile: Dockerfile
+    ports:
+      - "5173:5173" # Vite's default dev port is 5173
+    volumes:
+      - ./frontend:/app           # Syncs your code
+      - /app/node_modules         # Prevents local modules from overwriting container modules
+    environment:
+      - CHOKIDAR_USEPOLLING=true  # Necessary for WSL/Docker to detect file saves
+    command: npm run dev
+    env_file: "frontend.env"
+
+  architecture-retrieval:
+    build: 
+      context: ./architecture-retrieval
+      dockerfile: Dockerfile 
+    ports:  
+      - "8000:8000" # Assuming your backend runs on port 8000
+    volumes:
+      - ./architecture-retrieval:/app
+    env_file:
+      - ./architecture-retrieval/.env
+
+  # You can add your backend service here later
+  # backend:
+  #   build: ./backend
+  #   ...
+
+networks:
+  app-network:
+    driver: bridge
