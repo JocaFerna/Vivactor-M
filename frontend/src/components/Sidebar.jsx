@@ -40,7 +40,7 @@ const Sidebar = () => {
             <span className="text-white font-bold">T</span>
           </div>
           <h1 className={`text-white font-medium text-xl duration-200 ${!open && "scale-0"}`}>
-            MSA Refactor
+            Vivactor-M
           </h1>
         </div>
 
