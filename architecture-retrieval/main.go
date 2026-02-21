@@ -7,9 +7,11 @@ import (
 	"os"
 	"architecture-retrieval/routes"
 	"github.com/rs/cors"
+	"architecture-retrieval/last_will"
 )
 
 func main() {
+	last_will.SetupCleanupHandler()
 	port := env("PORT", "8000")
 	handler(fmt.Sprintf(":%s", port))
 }

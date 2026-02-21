@@ -1,6 +1,6 @@
 # 1. Build Stage
 FROM golang:1.24-alpine AS build
-RUN apk add --no-cache git ca-certificates
+RUN apk add --no-cache git ca-certificates docker-cli docker-cli-compose make
 WORKDIR /api
 COPY go.mod go.sum ./
 RUN go mod download && go mod verify
@@ -9,9 +9,8 @@ RUN go build -ldflags "-s -w" -o api main.go
 
 # 2. Use a modern, secure runtime image
 FROM alpine:3.19 AS runtime
-
-# FIX: Add dependencies required for VS Code Server to run on Alpine
-RUN apk add --no-cache libstdc++ gcompat ca-certificates
+# FIX: Add dependencies required for VS Code Server to run on Alpine + to run docker instances
+RUN apk add --no-cache libstdc++ gcompat ca-certificates docker-cli docker-cli-compose make
 
 WORKDIR /api
 

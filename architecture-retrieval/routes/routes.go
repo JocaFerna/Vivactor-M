@@ -23,6 +23,7 @@ func Register() {
 	routes := map[string]Handler{
 		"/":      home,
 		"/cloneRepository":  cloneHandler,
+		"/startArchitecture" : startHandler,
 	}
 
 	for route, handler := range routes {
@@ -69,6 +70,25 @@ func cloneHandler(writer http.ResponseWriter, request *http.Request) {
 	writer.Write([]byte("{\"message\": \"Repository cloned successfully\"}"))
 	return
 
+}
+func startHandler(writer http.ResponseWriter, request *http.Request) {
+	log.Println("Received start architecture request")
+
+	// Get the url properly
+	url := request.URL.Query().Get("url")
+	command := request.URL.Query().Get("command")
+	last_appearance_of_separator := strings.LastIndex(url,"/")
+
+	repo_name := request.URL.Query().Get("url")[last_appearance_of_separator:]
+	log.Printf("Starting architecture for repository: %s\n", repo_name)
+
+	architecture.StartArchitecture(repo_name,command)
+
+	// Return 200 OK
+	writer.WriteHeader(http.StatusOK)
+	writer.Write([]byte("{\"message\": \"Starting architecture...\"}"))
+	return
+	
 }
 
 /**func callback(writer http.ResponseWriter, request *http.Request) {

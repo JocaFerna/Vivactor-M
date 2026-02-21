@@ -1,6 +1,8 @@
 import React, { useState } from 'react';
-import { ChevronLeft, Upload, Settings, FileText, Users } from 'lucide-react';
+import { ChevronLeft, Upload, Settings, FileText, Users, Play } from 'lucide-react';
 import LoadArchModal from './modal/LoadArchModal';
+import { useGlobalStore } from '../store/useGlobalStore';
+import StartArchModal from './modal/StartArchModal';
 
 const NavItem = ({ icon, title, onClick, open, active, gap }) => (
   <li
@@ -19,9 +21,11 @@ const NavItem = ({ icon, title, onClick, open, active, gap }) => (
   </li>
 );
 
+
 const Sidebar = () => {
   const [open, setOpen] = useState(true);
   const [isLoadModalOpen, setIsLoadModalOpen] = useState(false);
+  const [isStartModalOpen, setIsStartModalOpen] = useState(false);
 
   return (
     <div className="flex">
@@ -53,7 +57,17 @@ const Sidebar = () => {
             active={true}
             onClick={() => setIsLoadModalOpen(true)} 
           />
-          
+
+          {/* Only active when useGlobalStore().architectureURL is set, otherwise it should be disabled or hidden */}
+          {useGlobalStore().architectureURL && (
+            <NavItem 
+              icon={<Play size={20} />} 
+              title="Start Architecture" 
+              open={open} 
+              onClick={() => setIsStartModalOpen(true)} 
+            />
+          )}
+
           {/* You can easily add more items here with their own specific onClick functions */}
           <NavItem 
             icon={<FileText size={20} />} 
@@ -68,6 +82,10 @@ const Sidebar = () => {
       <LoadArchModal 
         isOpen={isLoadModalOpen} 
         onClose={() => setIsLoadModalOpen(false)} 
+      />
+      <StartArchModal 
+        isOpen={isStartModalOpen} 
+        onClose={() => setIsStartModalOpen(false)} 
       />
     </div>
   );

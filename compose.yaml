@@ -21,8 +21,17 @@ services:
       - "8000:8000" # Assuming your backend runs on port 8000
     volumes:
       - ./architecture-retrieval:/app
+      - /home/joca/Thesis/repositories/downloads:/api/downloads
+      - /var/run/docker.sock:/var/run/docker.sock
+    environment:
+      - DOCKER_API_VERSION=1.41 # Optional: helps Go SDK negotiate version
     env_file:
       - ./architecture-retrieval/.env
+    # TODO: In production, it shouldn't run as root. You can set a specific user or use a non-root image.
+    user: "1000:1000"
+    group_add:
+      - "998"
+    stop_grace_period: 20s # Give it more time to clean up containers on shutdown
 
   # You can add your backend service here later
   # backend:
@@ -32,3 +41,4 @@ services:
 networks:
   app-network:
     driver: bridge
+    name: vivactor_micro_network

@@ -1,6 +1,6 @@
 # Vivactor-M
 
-Vivactor-M l is a specialized tool designed to facilitate real-time microservices refactoring with usage of liveness features (real-time feedback). It aims to improve architectural quality by providing immediate feedback and automated transformation.
+Vivactor-M is a specialized tool designed to facilitate real-time microservices refactoring with usage of liveness features (real-time feedback). It aims to improve architectural quality by providing immediate feedback and automated transformation.
 
 
 ## Requirements

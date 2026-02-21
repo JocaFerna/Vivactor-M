@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { X, CheckCircle2, Loader2 } from 'lucide-react';
+import { useGlobalStore } from '../../store/useGlobalStore';
 
 // 2. Define the logic (Keep it inside or move to a separate service file)
   const fetchSoftware = async (repoUrl) => {
@@ -13,6 +14,8 @@ import { X, CheckCircle2, Loader2 } from 'lucide-react';
         const response = await fetch(fullUrl);
         
         if (!response.ok) throw new Error(`Server error: ${response.status}`);
+        
+        useGlobalStore.setState({ architectureURL: repoUrl }); // Store the URL in global state for later use
         
         const result = await response.json();
       } catch (error) {
