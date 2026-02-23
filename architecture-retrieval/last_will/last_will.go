@@ -21,18 +21,29 @@ func SetupCleanupHandler() {
 		// EXECUTE YOUR MAKEFILE
 		// Change the directory to where your Makefile is located
 		cmd := exec.Command("docker", "compose", "down") // or whatever your target is
-		cmd.Dir = "/api/downloads"
-
-		// For every repository, execute docker compose down to stop the containers and remove them
-		cmd.Stdout = os.Stdout
-		cmd.Stderr = os.Stderr
-
-		if err := cmd.Run(); err != nil {
-			log.Printf("Last-Will Makefile failed: %v", err)
-		} else {
-			log.Println("Last-Will Makefile executed successfully.")
+		
+		// Execute this command in every subdirectory of /api/downloads.
+		downloadsDir := "/api/downloads"
+		subdirs, err := os.ReadDir(downloadsDir)
+		if err != nil {
+			log.Printf("Failed to read downloads directory: %v", err)
+			os.Exit(1)
 		}
+		
+		for _, subdir := range subdirs {
+			if subdir.IsDir() {
+				cmd.Dir = downloadsDir + "/" + subdir.Name()
+				// For every repository, execute docker compose down to stop the containers and remove them
+				cmd.Stdout = os.Stdout
+				cmd.Stderr = os.Stderr
 
+				if err := cmd.Run(); err != nil {
+					log.Printf("Last-Will Makefile failed: %v", err)
+				} else {
+					log.Println("Last-Will Makefile executed successfully.")
+				}
+			}
+		}
 		os.Exit(0) // Now we can safely exit
 	}()
 }

@@ -13,6 +13,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strings"
+	"time"
 
 	git "github.com/go-git/go-git/v5"
 )
@@ -39,12 +40,22 @@ func CloneRepository(url string, path string, name string) error {
 
 func StartArchitecture(repoName string, make_instructions string) {
 	log.Println("Starting architecture...")
-	err := dockerComposeHandler(repoName, make_instructions)
-	if err != nil {
-		log.Printf("Error starting architecture: %s\n", err.Error())
-	} else {
-		log.Println("Architecture started successfully")
+	go func() {
+		err := dockerComposeHandler(repoName, make_instructions)
+		if err != nil {
+			log.Printf("Error starting architecture: %s\n", err.Error())
+		} else {
+			log.Println("Architecture started successfully")
+		}
+	}()
+	// As we are leading with a goroutine, we need to implement a manual way to keep the main thread alive until the architecture is started.
+	// Create a timeout of 30 seconds, which should be enough for the architecture to start. If it takes longer, we can assume something went wrong and log an error.
+	timeout := time.After(30 * time.Second)
+	select {
+	case <-timeout:
+		log.Println("Timeout reached while starting architecture. Please check the logs for more details.")
 	}
+
 }
 
 func createNetworkOverride(repoPath string) error {
