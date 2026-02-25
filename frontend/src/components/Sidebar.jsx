@@ -41,7 +41,8 @@ const Sidebar = () => {
         {/* Logo */}
         <div className="flex gap-x-4 items-center">
           <div className="bg-blue-600 p-2 rounded shrink-0">
-            <span className="text-white font-bold">V</span>
+            {/* Image of tool */}
+            <img src="/public/images/logo_white.png" alt="Vivactor-M Logo" className="w-6 h-6" />
           </div>
           <h1 className={`text-white font-medium text-xl duration-200 ${!open && "scale-0"}`}>
             Vivactor-M

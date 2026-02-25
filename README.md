@@ -1,3 +1,7 @@
+
+
+<img src="resources/images/logo_with_name_with_bg.png" alt="logo" width="200"/>
+
 # Vivactor-M
 
 Vivactor-M is a specialized tool designed to facilitate real-time microservices refactoring with usage of liveness features (real-time feedback). It aims to improve architectural quality by providing immediate feedback and automated transformation.
