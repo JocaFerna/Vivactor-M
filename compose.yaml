@@ -1,10 +1,27 @@
 services:
+  traefik:
+    image: traefik:v3.0
+    command:
+      - "--api.dashboard=true"
+      - "--providers.docker=true"
+      - "--providers.docker.exposedbydefault=false"
+      - "--entrypoints.web.address=:80"
+    ports:
+      - "8080:80"     # Public entrypoint
+      - "8081:8080"   # Traefik dashboard (optional)
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    networks:
+      - shared_network
+    
+
   frontend:
     build: 
       context: ./frontend
       dockerfile: Dockerfile
     ports:
       - "5173:5173" # Vite's default dev port is 5173
+      
     volumes:
       - ./frontend:/app           # Syncs your code
       - /app/node_modules         # Prevents local modules from overwriting container modules
@@ -12,13 +29,17 @@ services:
       - CHOKIDAR_USEPOLLING=true  # Necessary for WSL/Docker to detect file saves
     command: npm run dev
     env_file: "frontend.env"
+    networks:
+      - shared_network
+    
 
   architecture-retrieval:
     build: 
       context: ./architecture-retrieval
       dockerfile: Dockerfile 
     ports:  
-      - "8000:8000" # Assuming your backend runs on port 8000
+      - "8000:8000" # Assuming your backend runs on port 8000~
+      
     volumes:
       - ./architecture-retrieval:/app
       - /home/joca/Thesis/repositories/downloads:/api/downloads
@@ -32,6 +53,9 @@ services:
     group_add:
       - "998"
     stop_grace_period: 20s # Give it more time to clean up containers on shutdown
+    networks:
+      - shared_network
+    
 
   # You can add your backend service here later
   # backend:
@@ -39,6 +63,6 @@ services:
   #   ...
 
 networks:
-  app-network:
-    driver: bridge
-    name: vivactor_micro_network
+  shared_network:
+    name: shared_network
+    external: true

@@ -41,7 +41,7 @@ const Sidebar = () => {
         {/* Logo */}
         <div className="flex gap-x-4 items-center">
           <div className="bg-blue-600 p-2 rounded shrink-0">
-            <span className="text-white font-bold">T</span>
+            <span className="text-white font-bold">V</span>
           </div>
           <h1 className={`text-white font-medium text-xl duration-200 ${!open && "scale-0"}`}>
             Vivactor-M
