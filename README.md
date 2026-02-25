@@ -1,6 +1,8 @@
 
 
-<img src="resources/images/logo_with_name_with_bg.png" alt="logo" width="200"/>
+<div style="text-align: center;">
+    <img src="resources/images/logo_with_name_with_bg.png" alt="logo" width="200"/>
+</div>
 
 # Vivactor-M
 
