@@ -2,6 +2,11 @@ from flask import Flask, jsonify, request
 
 import code2DFD
 
+import os
+from dotenv import load_dotenv
+
+load_dotenv()
+
 app = Flask(__name__, instance_relative_config = True)
 
 
@@ -14,6 +19,23 @@ def index():
                      Optionally provide a commit hash as \"commit\" parameter")
 
     return index_message
+
+
+@app.get('/dfd_local')
+def dfd_local():
+    
+    url = request.args.get("url")
+
+    if not url:
+        return "Please specify a local URL, e.g. /dfd_local?url=repository_to_analyse/piggymetrics "
+
+    # Call Code2DFD
+    results = code2DFD.api_invocation(url, None)
+
+    # Create response JSON object and return it
+    response = jsonify(**results)
+
+    return response
 
 
 @app.get('/dfd')
@@ -37,4 +59,4 @@ def dfd():
 
 # starts local server
 if __name__ == '__main__':
-    app.run(debug=True, host='127.0.0.1', port=5001)
+    app.run(debug=True, host='127.0.0.1', port=int(os.getenv("PORT", 5000)))

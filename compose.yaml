@@ -42,7 +42,7 @@ services:
       
     volumes:
       - ./architecture-retrieval:/app
-      - /home/joca/Thesis/repositories/downloads:/api/downloads
+      - /repositories/downloads:/api/downloads
       - /var/run/docker.sock:/var/run/docker.sock
     environment:
       - DOCKER_API_VERSION=1.41 # Optional: helps Go SDK negotiate version
@@ -55,12 +55,20 @@ services:
     stop_grace_period: 20s # Give it more time to clean up containers on shutdown
     networks:
       - shared_network
-    
 
-  # You can add your backend service here later
-  # backend:
-  #   build: ./backend
-  #   ...
+  code2dfd:
+    build: 
+      context: ./code2DFD
+      dockerfile: Dockerfile 
+    ports:  
+      - "5001:5001" # Assuming your backend runs on port 5001
+    volumes:
+      - ./code2DFD:/app
+      - /repositories/downloads:/app/downloads
+    env_file:
+      - dev.env
+    networks:
+      - shared_network
 
 networks:
   shared_network:
