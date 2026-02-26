@@ -82,12 +82,20 @@ func startHandler(writer http.ResponseWriter, request *http.Request) {
 	repo_name := request.URL.Query().Get("url")[last_appearance_of_separator:]
 	log.Printf("Starting architecture for repository: %s\n", repo_name)
 
-	architecture.StartArchitecture(repo_name,command)
+	err := architecture.StartArchitecture(repo_name,command)
+	if err != nil {
+		log.Printf("Error starting architecture: %s\n", err.Error())
+		writer.WriteHeader(http.StatusInternalServerError)
+		writer.Write([]byte("{\"message\": \"Error starting architecture\"}"))
+		return
+	} else {
+		// Return 200 OK
+		writer.WriteHeader(http.StatusOK)
+		writer.Write([]byte("{\"message\": \"Starting architecture...\"}"))
+		return
+	}
 
-	// Return 200 OK
-	writer.WriteHeader(http.StatusOK)
-	writer.Write([]byte("{\"message\": \"Starting architecture...\"}"))
-	return
+	
 	
 }
 

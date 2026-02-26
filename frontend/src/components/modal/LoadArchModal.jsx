@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { X, CheckCircle2, Loader2 } from 'lucide-react';
 import { useGlobalStore } from '../../store/useGlobalStore';
+import { motion } from "motion/react";
 
 // 2. Define the logic (Keep it inside or move to a separate service file)
   const fetchSoftware = async (repoUrl) => {
@@ -39,8 +40,7 @@ const LoadArchModal = ({ isOpen, onClose }) => {
     fetchSoftware(url)
       .then(() => setStatus('success'))
       .catch(() => {
-        setStatus('idle');
-        alert("Failed to load architecture. Please check the URL and try again.");
+        setStatus('failed');
       });
   };
 
@@ -66,7 +66,26 @@ const LoadArchModal = ({ isOpen, onClose }) => {
               Got it
             </button>
           </div>
-        ) : (
+        ) : status === 'failed' ? (
+          <div className="text-center py-4 animate-in zoom-in duration-300 flex-grow flex flex-col justify-center">
+              <motion.div
+                initial={{ scale: 0 }}
+                animate={{ scale: 1 }}
+                transition={{
+                  type: "spring",
+                  stiffness: 260,
+                  damping: 20
+                }}
+              >
+                <X size={200} className="text-red-500 mx-auto mb-8" />
+              </motion.div>
+            <h2 className="text-xl font-bold text-slate-800">Failed to Load</h2>
+            <p className="text-slate-600 mt-2">Please check your URL and try again.</p>
+            <button onClick={handleClose} className="mt-6 w-full bg-slate-900 text-white py-2 rounded-md hover:bg-slate-800">
+              Close
+            </button>
+          </div>
+          ) : (
           <>
             <h2 className="text-xl font-bold text-slate-800 mb-4">Load Architecture</h2>
             <form onSubmit={handleSubmit} className="space-y-4">

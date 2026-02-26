@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { motion } from "motion/react";
 import { X, CheckCircle2, Loader2 } from 'lucide-react';
 import { useGlobalStore } from '../../store/useGlobalStore';
 
@@ -14,7 +15,9 @@ const startSoftware = async (command) => {
         // 2. Make the call
         const response = await fetch(fullUrl);
         
-        if (!response.ok) throw new Error(`Server error: ${response.status}`);
+        if (!response.ok){
+          throw new Error(`Server error: ${response.status}`);
+        } 
         
         useGlobalStore.setState({ architectureURL: fullUrl }); // Store the URL in global state for later use
         
@@ -40,8 +43,7 @@ const StartArchModal = ({ isOpen, onClose }) => {
     startSoftware(command)
       .then(() => setStatus('success'))
       .catch(() => {
-        setStatus('idle');
-        alert("Failed to start architecture.");
+        setStatus('failed');
       });
   };
 
@@ -67,6 +69,25 @@ const StartArchModal = ({ isOpen, onClose }) => {
             <p className="text-slate-600 mt-2">Your microservices map is running.</p>
             <button onClick={handleClose} className="mt-6 w-full bg-slate-900 text-white py-2 rounded-md hover:bg-slate-800">
               Got it
+            </button>
+          </div>
+        ) : status === 'failed' ? (
+          <div className="text-center py-4 animate-in zoom-in duration-300 flex-grow flex flex-col justify-center">
+              <motion.div
+                initial={{ scale: 0 }}
+                animate={{ scale: 1 }}
+                transition={{
+                  type: "spring",
+                  stiffness: 260,
+                  damping: 20
+                }}
+              >
+                <X size={200} className="text-red-500 mx-auto mb-8" />
+              </motion.div>
+            <h2 className="text-xl font-bold text-slate-800">Failed to Start</h2>
+            <p className="text-slate-600 mt-2">Please check your instructions and try again.</p>
+            <button onClick={handleClose} className="mt-6 w-full bg-slate-900 text-white py-2 rounded-md hover:bg-slate-800">
+              Close
             </button>
           </div>
         ) : (

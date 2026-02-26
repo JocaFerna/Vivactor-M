@@ -50,14 +50,16 @@ func CloneRepository(url string, path string, name string) error {
 	return err
 }
 
-func StartArchitecture(repoName string, make_instructions string) {
+func StartArchitecture(repoName string, make_instructions string) error {
 	log.Println("Starting architecture...")
 
 	err := dockerComposeHandler(repoName, make_instructions)
 	if err != nil {
 		log.Printf("Error starting architecture: %s\n", err.Error())
+		return err
 	} else {
 		log.Println("Architecture started successfully")
+		return nil
 	}
 
 }
