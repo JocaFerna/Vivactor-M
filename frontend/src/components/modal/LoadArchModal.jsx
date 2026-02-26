@@ -17,8 +17,22 @@ import { motion } from "motion/react";
         if (!response.ok) throw new Error(`Server error: ${response.status}`);
         
         useGlobalStore.setState({ architectureURL: repoUrl }); // Store the URL in global state for later use
-        
+        console.log("Repository cloning initiated, waiting for response...");
         const result = await response.json();
+        console.log("Repository cloned successfully:", result);
+
+        const API_BASE_GRAPH = import.meta.env.VITE_CODE2DFD_URL
+        console.log("Initiating graph data fetch...");
+
+        const paramsGraph = new URLSearchParams({ url: "downloads/piggymetrics" });
+        const fullUrlGraph = `${API_BASE_GRAPH}/dfd_local?${paramsGraph.toString()}`;
+        console.log("Fetching graph data from:", fullUrlGraph);
+        const responseGraph = await fetch(fullUrlGraph);
+        
+        if (!responseGraph.ok) throw new Error(`Server error: ${responseGraph.status}`);
+        
+        const resultGraph = await responseGraph.json();
+        console.log("Graph data received:", resultGraph);
       } catch (error) {
         console.error("Connection to :8000 failed:", error);
         throw error; // Rethrow to be caught in the component

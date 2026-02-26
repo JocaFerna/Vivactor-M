@@ -69,6 +69,7 @@ def perform_analysis():
     if os.path.isdir(absolute_url_path):
         # Now, we need to check if it's a git repository
         if not os.path.exists(os.path.join(absolute_url_path, ".git")):
+            tmp.tmp_config.set("Repository", "local_path", absolute_url_path)
             print(f"The provided local path '{url_path}' is not a git repository, treating it as a normal directory.")
             local_path = url_path
             repo_name = os.path.basename(url_path)

@@ -47,6 +47,12 @@ func CloneRepository(url string, path string, name string) error {
 		URL:      finalURL,
 		Progress: os.Stdout,
 	})
+
+	// Remove .git folder to avoid confusion and save space
+	err = os.RemoveAll(filepath.Join(path, ".git"))
+	if err != nil {
+		log.Printf("Error removing .git folder: %s\n", err.Error())
+	}
 	return err
 }
 

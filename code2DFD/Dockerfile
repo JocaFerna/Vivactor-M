@@ -27,4 +27,4 @@ ENV FLASK_APP=flask_code2DFD.py
 ENV PORT=5001
 
 # Run the application
-CMD ["python", "flask_code2DFD.py"]
+CMD ["python","-u", "flask_code2DFD.py"]

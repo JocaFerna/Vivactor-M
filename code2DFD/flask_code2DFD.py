@@ -4,10 +4,17 @@ import code2DFD
 
 import os
 from dotenv import load_dotenv
+from flask_cors import CORS
 
 load_dotenv()
 
-app = Flask(__name__, instance_relative_config = True)
+# Initialize ONLY ONCE
+app = Flask(__name__, instance_relative_config=True)
+
+# Apply CORS to the instance we are actually using
+# Adding methods ensures OPTIONS preflight requests work correctly
+CORS(app, resources={r"/*": {"origins": "http://localhost:5173"}}, 
+     methods=["GET", "POST", "OPTIONS"])
 
 
 @app.get('/')
@@ -59,4 +66,4 @@ def dfd():
 
 # starts local server
 if __name__ == '__main__':
-    app.run(debug=True, host='127.0.0.1', port=int(os.getenv("PORT", 5000)))
+    app.run(debug=True, host='0.0.0.0', port=int(os.getenv("PORT", 5000)))

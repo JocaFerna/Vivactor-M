@@ -42,7 +42,7 @@ services:
       
     volumes:
       - ./architecture-retrieval:/app
-      - /repositories/downloads:/api/downloads
+      - ./repositories/downloads:/api/downloads
       - /var/run/docker.sock:/var/run/docker.sock
     environment:
       - DOCKER_API_VERSION=1.41 # Optional: helps Go SDK negotiate version
@@ -55,6 +55,10 @@ services:
     stop_grace_period: 20s # Give it more time to clean up containers on shutdown
     networks:
       - shared_network
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.arch.rule=Host(`architecture.localhost`)"
+      - "traefik.http.services.arch.loadbalancer.server.port=8000"
 
   code2dfd:
     build: 
@@ -64,7 +68,7 @@ services:
       - "5001:5001" # Assuming your backend runs on port 5001
     volumes:
       - ./code2DFD:/app
-      - /repositories/downloads:/app/downloads
+      - ./repositories/downloads:/app/downloads
     env_file:
       - dev.env
     networks:

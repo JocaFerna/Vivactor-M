@@ -8,3 +8,4 @@ Werkzeug>=2.0,<3.0
 ruamel.yaml==0.17.21
 six==1.16.0
 python-dotenv>=1.0.0
+flask-cors==3.0.10
