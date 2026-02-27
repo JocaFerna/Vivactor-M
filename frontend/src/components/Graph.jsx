@@ -1,29 +1,23 @@
 import React from 'react';
 import { GraphCanvas } from 'reagraph';
+import { useGlobalStore } from '../store/useGlobalStore';
+import { use, useEffect, useState } from 'react';
+
 
 const Graph = () => {
+    // This component automatically re-renders when graphData in the store changes
+    const graphData = useGlobalStore((state) => state.graphData);
+
     return (
         <div className="relative w-full h-full min-h-[400px]">
-        <GraphCanvas
-            nodes={[
-            {
-                id: 'n-1',
-                label: '1'
-            },
-            {
-                id: 'n-2',
-                label: '2'
-            }
-            ]}
-            edges={[
-            {
-                id: '1->2',
-                source: 'n-1',
-                target: 'n-2',
-                label: 'Edge 1-2'
-            }
-            ]}
-        />
+            {graphData.nodes.length === 0 ? (
+                <div className="flex items-center justify-center h-full text-gray-500">No graph data available. Please load an architecture.</div>
+            ) : (
+                <GraphCanvas
+                    nodes={graphData.nodes}
+                    edges={graphData.edges}
+                />
+            )}
         </div>
     );
 };

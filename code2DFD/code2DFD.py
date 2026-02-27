@@ -34,6 +34,9 @@ def api_invocation(url: str, commit: str) -> dict:
     logger.info("*** New execution ***")
     logger.debug("Initializing config to tmp file")
     for section in CONFIG_SECTIONS:  # Copying what is needed from default to temp
+        # Yes, I am aware this is a bit hacky, but it works and I don't want to spend more time on this
+        if tmp.tmp_config.has_section(section):
+            tmp.tmp_config.remove_section(section)
         tmp.tmp_config.add_section(section)
         for entry in DEFAULT_CONFIG[section]:
             tmp.tmp_config.set(section, entry, DEFAULT_CONFIG[section][entry])

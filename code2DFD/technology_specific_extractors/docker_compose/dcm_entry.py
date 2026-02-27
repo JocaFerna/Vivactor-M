@@ -16,6 +16,10 @@ def set_microservices(dfd) -> None:
     """
 
     global docker_compose_content
+    
+    # Ensure consistency in case of multiple calls to set_microservices (e.g. when called from detect_microservice)
+    if docker_compose_content != False:
+        docker_compose_content = False
 
     microservices_set = set()
 
