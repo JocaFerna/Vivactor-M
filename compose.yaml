@@ -41,6 +41,7 @@ services:
       - "8000:8000" # Assuming your backend runs on port 8000~
       
     volumes:
+      - nix_data:/nix  # This is where user-requested packages are cached
       - ./architecture-retrieval:/app
       - ./repositories/downloads:/api/downloads
       - /var/run/docker.sock:/var/run/docker.sock
@@ -73,7 +74,8 @@ services:
       - dev.env
     networks:
       - shared_network
-
+volumes:
+  nix_data:
 networks:
   shared_network:
     name: shared_network

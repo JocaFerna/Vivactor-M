@@ -17,15 +17,19 @@ Vivactor-M is a specialized tool designed to facilitate real-time microservices 
 
 1. **Clone the repository:**
 ```bash
-git clone https://github.com/JocaFerna/LiveRefactoringTool.git
-
+git clone https://github.com/JocaFerna/Vivactor-M.git
 ```
-2. **Build & Run the docker containers:**
+2. **Start all the software**
 ```bash
-docker compose build
-docker compose up
-
+./start_scripts/start_architecture.sh
 ```
+Note: You may need to give permissions to execute this script, you can do it using this command
+
+```bash
+sudo chmod +x ./start_scripts/start_architecture.sh
+```
+
+
 3. **Access http://localhost:5173/**
 
 ## 📄 License
