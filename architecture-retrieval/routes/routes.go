@@ -77,12 +77,13 @@ func startHandler(writer http.ResponseWriter, request *http.Request) {
 	// Get the url properly
 	url := request.URL.Query().Get("url")
 	command := request.URL.Query().Get("command")
+	packageList := request.URL.Query().Get("packages")
 	last_appearance_of_separator := strings.LastIndex(url,"/")
 
 	repo_name := request.URL.Query().Get("url")[last_appearance_of_separator:]
 	log.Printf("Starting architecture for repository: %s\n", repo_name)
 
-	err := architecture.StartArchitecture(repo_name,command)
+	err := architecture.StartArchitecture(repo_name,command,packageList)
 	if err != nil {
 		log.Printf("Error starting architecture: %s\n", err.Error())
 		writer.WriteHeader(http.StatusInternalServerError)

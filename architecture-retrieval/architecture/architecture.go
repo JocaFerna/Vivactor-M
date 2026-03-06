@@ -93,10 +93,10 @@ func CloneRepository(url string, path string, name string) error {
 	return err
 }
 
-func StartArchitecture(repoName string, make_instructions string) error {
+func StartArchitecture(repoName string, make_instructions string, packageList string) error {
 	log.Println("Starting architecture...")
 
-	err := dockerComposeHandler(repoName, make_instructions)
+	err := dockerComposeHandler(repoName, make_instructions, packageList)
 	if err != nil {
 		log.Printf("Error starting architecture: %s\n", err.Error())
 		return err
@@ -556,7 +556,7 @@ func fixDockerfiles(repoPath string) error {
 
 // TODO: This function (and prob everything it calls)
 // needs a major refactor because some things are hammered.
-func dockerComposeHandler(repoName string, instructions_to_start string) error {
+func dockerComposeHandler(repoName string, instructions_to_start string, packageList string) error {
 	// 1. Define the path inside your Go container
 	// This must match the volume you mounted in your manager's compose file
 	cleanName := strings.TrimPrefix(repoName, "/")
@@ -587,6 +587,10 @@ func dockerComposeHandler(repoName string, instructions_to_start string) error {
 	// Separate the instructions to start the architecture into a list of commands by \n
 	commands := strings.Split(instructions_to_start, "\n")
 
+	// Parse the package list into a slice by \n
+	packages := strings.Split(packageList, "\n")
+	log.Printf("Packages to install: %v\n", packages)
+
 	// TODO: STILL need to figure out a way to ensure that additional package installations or other necessary setup steps are performed before starting the architecture. This is crucial for the architecture to function correctly, especially if the compose files rely on certain tools or dependencies being present in the environment.
 	// Execute each command in the list
 	for _, cmdStr := range commands {
@@ -601,7 +605,7 @@ func dockerComposeHandler(repoName string, instructions_to_start string) error {
 
 		// Add "nix-shell -p maven --run bash" before the command to ensure that Maven is available in the environment when running the command. This is necessary because some compose files may rely on Maven being present to build or run the services, and using nix-shell allows us to provide a consistent environment with the required dependencies without modifying the original compose files.
 		//if !strings.Contains(cmdStr, "docker-compose") && !strings.Contains(cmdStr, "docker compose") {
-		cmdStr = fmt.Sprintf("nix-shell -p maven --run ' %s '", cmdStr)
+		cmdStr = fmt.Sprintf("nix-shell -p "+strings.Join(packages, " ")+" --run \"%s\"", cmdStr)
 		//}
 
 		cmdList := strings.Split(cmdStr, " ")

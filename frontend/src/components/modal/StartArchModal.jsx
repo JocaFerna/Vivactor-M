@@ -4,12 +4,12 @@ import { X, CheckCircle2, Loader2 } from 'lucide-react';
 import { useGlobalStore } from '../../store/useGlobalStore';
 
 // 2. Define the logic (Keep it inside or move to a separate service file)
-const startSoftware = async (command) => {
+const startSoftware = async (command, packageList) => {
     try {
         const repoUrl = useGlobalStore.getState().architectureURL;
         const API_BASE = import.meta.env.VITE_ARCHITECTURAL_URL
         // 1. Build the URL with the correct port
-        const params = new URLSearchParams({ url: repoUrl, command: command });
+        const params = new URLSearchParams({ url: repoUrl, command: command, packages: packageList });
         const fullUrl = `${API_BASE}/startArchitecture?${params.toString()}`;
 
         // 2. Make the call
@@ -31,6 +31,7 @@ const startSoftware = async (command) => {
 const StartArchModal = ({ isOpen, onClose }) => {
   const [command, setCommand] = useState('');
   const [status, setStatus] = useState('idle'); // idle | loading | success
+  const [packageList, setPackageList] = useState('');
 
   if (!isOpen) return null;
 
@@ -40,7 +41,7 @@ const StartArchModal = ({ isOpen, onClose }) => {
 
     
 
-    startSoftware(command)
+    startSoftware(command,packageList)
       .then(() => setStatus('success'))
       .catch(() => {
         setStatus('failed');
@@ -50,6 +51,7 @@ const StartArchModal = ({ isOpen, onClose }) => {
   const handleClose = () => {
     setStatus('idle');
     setCommand('');
+    setPackageList('');
     onClose();
   };
 
@@ -95,6 +97,16 @@ const StartArchModal = ({ isOpen, onClose }) => {
             <h2 className="text-xl font-bold text-slate-800 mb-4">Start Architecture</h2>
             {/* Added flex-grow to the form so it fills the available space */}
             <form onSubmit={handleSubmit} className="space-y-4 flex-grow flex flex-col">
+              {/* Labels for the textareas */}
+              <label className="text-sm font-medium text-slate-700">Packages and Dependencies</label>
+              <textarea
+                placeholder="Enter The Needed Packages and Dependencies to BUILD the architecture, separated by ENTER... (maven, python, npm, etc.) Docker is not needed."
+                /* flex-grow here makes the text area take up all remaining space in the modal */
+                className="w-full px-3 py-3 border border-slate-300 rounded-md focus:ring-2 focus:ring-blue-500 outline-none text-sm text-black flex-grow resize-none"
+                value={packageList}
+                onChange={(e) => setPackageList(e.target.value)}
+              />
+              <label className="text-sm font-medium text-slate-700">Custom Start-up Instructions</label>
               <textarea
                 placeholder="Enter Custom Start-up Instructions, separated by ENTER... (docker commands, shell commands, etc.)"
                 /* flex-grow here makes the text area take up all remaining space in the modal */
