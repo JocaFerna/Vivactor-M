@@ -30,7 +30,7 @@ func handler(address string) error {
 
 	// 2. Set up CORS middleware
 	c := cors.New(cors.Options{
-		// TODO: In production, replace "*" with specific origins like "http://frontend:5173"
+		//TODO: Temporary fix -@joca at 3/12/2026, 10:24:18 AM: In production, replace "*" with specific origins like "http://frontend:5173" 
 		AllowedOrigins:   []string{"*"},
 		AllowedMethods:   []string{"GET", "POST", "OPTIONS"},
 		AllowedHeaders:   []string{"Content-Type", "Authorization"},

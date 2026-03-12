@@ -20,7 +20,8 @@ const startSoftware = async (command, packageList) => {
         } 
         
         useGlobalStore.setState({ architectureURL: fullUrl }); // Store the URL in global state for later use
-        
+        useGlobalStore.setState({ isArchitectureRunning: true }); // Set the architecture as running in global state
+
         const result = await response.json();
       } catch (error) {
         console.error("Connection to :8000 failed:", error);

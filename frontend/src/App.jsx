@@ -2,6 +2,7 @@
 import React, { useEffect, useState } from 'react';
 import Sidebar from './components/Sidebar';
 import Graph from './components/Graph';
+import ArchitectureSmellsBox from './components/ArchitectureSmellsBox';
 
 function App() {
   // 1. Create state to hold the data and the loading status
@@ -14,6 +15,7 @@ function App() {
       <Sidebar />
       <main className="flex-1 h-screen overflow-y-auto bg-white p-4">
         <Graph />
+        <ArchitectureSmellsBox />
       </main>
     </div>
   );

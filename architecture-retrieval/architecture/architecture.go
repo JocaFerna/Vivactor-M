@@ -28,6 +28,8 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
+//const GlobalServiceNames map[string]int = make(map[string]int)
+
 // Structure matching docker compose ps --format json output
 type ComposeContainer struct {
 	Service string `json:"Service"`
@@ -266,7 +268,6 @@ func addSharedNetworkToComposeFiles(repoPath string) error {
 
 					servicesRaw[svcName] = svcMap
 
-					// TODO: This block could be simplified maybe? Specifically the deletes.
 					// Remove any service_healthy dependencies to avoid startup issues since we are adding a basic healthcheck to all services. This is a bit of a hack but it ensures that the architecture can start successfully without needing to analyze and modify complex dependency graphs in the compose files.
 					//"depends_on":
 					if dependsOn, ok := svcMap["depends_on"].(map[string]interface{}); ok {
@@ -530,6 +531,7 @@ func replace(slice []string, index int, value string) []string {
 	return slice
 }
 
+// TODO: This is hardcoded for 8 version of java
 func fixDockerfiles(repoPath string) error {
 	// This regex looks for any "FROM java" or "FROM openjdk" line
 	javaRegex := regexp.MustCompile(`(?i)FROM\s+(java|openjdk):?(\d+)?([\w.-]*)`)
@@ -539,13 +541,11 @@ func fixDockerfiles(repoPath string) error {
 			content, _ := os.ReadFile(path)
 
 			// We swap to Amazon Corretto.
-			// It is the most "stable" version of Java 8 available on Docker Hub
-			// that doesn't require a multi-stage build or complex environment setup.
-			newContent := javaRegex.ReplaceAllString(string(content), "FROM amazoncorretto:8-al2-jdk")
+			newContent := javaRegex.ReplaceAllString(string(content), "FROM amazoncorretto:$2-al2-jdk")
 
 			if newContent != string(content) {
 				os.WriteFile(path, []byte(newContent), 0644)
-				log.Printf("Swapped to Corretto 8 for %s", path)
+				log.Printf("Swapped to Corretto for %s", path)
 			}
 		}
 		return nil
@@ -574,7 +574,6 @@ func dockerComposeHandler(repoName string, instructions_to_start string, package
 	}
 
 	// Create a docker-compose.override.yml file with the necessary network configuration and Traefik labels for routing based on the services and their internal ports. This file will be used to ensure that all services are connected to the shared network and can be routed by Traefik without modifying the original compose files.
-
 	if err := createNetworkOverride(repoPath, services); err != nil {
 		return fmt.Errorf("failed to create network override: %w", err)
 	}
@@ -591,7 +590,6 @@ func dockerComposeHandler(repoName string, instructions_to_start string, package
 	packages := strings.Split(packageList, "\n")
 	log.Printf("Packages to install: %v\n", packages)
 
-	// TODO: STILL need to figure out a way to ensure that additional package installations or other necessary setup steps are performed before starting the architecture. This is crucial for the architecture to function correctly, especially if the compose files rely on certain tools or dependencies being present in the environment.
 	// Execute each command in the list
 	for _, cmdStr := range commands {
 
@@ -599,76 +597,15 @@ func dockerComposeHandler(repoName string, instructions_to_start string, package
 		if cmdStr == "" {
 			continue // Skip empty lines
 		}
-		// Replace docker-compose by docker compose.
 
-		//TODO: This is hardcoded the needed packages.
-
-		// Add "nix-shell -p maven --run bash" before the command to ensure that Maven is available in the environment when running the command. This is necessary because some compose files may rely on Maven being present to build or run the services, and using nix-shell allows us to provide a consistent environment with the required dependencies without modifying the original compose files.
-		//if !strings.Contains(cmdStr, "docker-compose") && !strings.Contains(cmdStr, "docker compose") {
-		cmdStr = fmt.Sprintf("nix-shell -p "+strings.Join(packages, " ")+" --run \"%s\"", cmdStr)
-		//}
-
+		// Change "docker-compose" to "docker compose"
 		cmdList := strings.Split(cmdStr, " ")
 		cmdStr = strings.Join(replace(cmdList, slices.Index(cmdList, "docker-compose"), "docker compose"), " ")
-		log.Printf("Prepared command: %s\n", cmdStr)
-		// If one of the commands contains the "up" command, we must add the -d flag to run it in detached mode.
-		/*if strings.Contains(cmdStr, "up") && !strings.Contains(cmdStr, "-d") {
-			log.Printf("Adding -d flag to command: %s\n", cmdStr)
-			parts := strings.Fields(cmdStr)
-			lastFIndex := -1
-
-			// Find the position of the last file listed after a -f
-			for i := 0; i <= len(parts)-1; i++ {
-				if parts[i] == "up" {
-					lastFIndex = i
-				}
-			}
-
-			if lastFIndex != -1 {
-				cmdStr = strings.Join(insert(parts, lastFIndex+1, "-d"), " ")
-			}
-			log.Printf("Updated command with -d: %s\n", cmdStr)
-		}*/
-		// Ensure the --wait flag is included in the command to ensure that the command waits for the services to be healthy before proceeding.
-		/*if strings.Contains(cmdStr, "up") && !strings.Contains(cmdStr, "--wait") {
-			log.Printf("Adding --wait flag to command: %s\n", cmdStr)
-			parts := strings.Fields(cmdStr)
-			lastFIndex := -1
-
-			log.Printf("Command parts: %v\n", parts)
-
-			// Find the position of the last file listed after a -f
-			for i := 0; i <= len(parts)-1; i++ {
-				if parts[i] == "up" {
-					lastFIndex = i
-				}
-			}
-
-			if lastFIndex != -1 {
-				cmdStr = strings.Join(insert(parts, lastFIndex+1, "--wait"), " ")
-			}
-			log.Printf("Updated command with --wait: %s\n", cmdStr)
-		}*/
-		// Ensure the --watch flag is included in the command to enable the watch functionality for services that have it configured in their compose files. This allows for automatic rebuilding and restarting of services when changes are detected in the specified watch paths.
-		/*if strings.Contains(cmdStr, "up") && !strings.Contains(cmdStr, "--watch") {
-			log.Printf("Adding --watch flag to command: %s\n", cmdStr)
-			parts := strings.Fields(cmdStr)
-			lastFIndex := -1
-
-			log.Printf("Command parts: %v\n", parts)
-
-			// Find the position of the last file listed after a -f
-			for i := 0; i <= len(parts)-1; i++ {
-				if parts[i] == "up" {
-					lastFIndex = i
-				}
-			}
-
-			if lastFIndex != -1 {
-				cmdStr = strings.Join(insert(parts, lastFIndex+1, "--watch"), " ")
-			}
-			log.Printf("Updated command with --watch: %s\n", cmdStr)
-		}*/
+		
+		// Add "nix-shell {packages} --run {cmdStr}" to the command to ensure it runs in the correct environment with the necessary dependencies installed.
+		cmdStr = fmt.Sprintf("nix-shell -p "+strings.Join(packages, " ")+" --run \"%s\"", cmdStr)
+		
+	    // Add the docker-compose.override.yml file.
 		if strings.Contains(cmdStr, "-f") {
 			parts := strings.Fields(cmdStr)
 			lastFIndex := -1
@@ -684,20 +621,18 @@ func dockerComposeHandler(repoName string, instructions_to_start string, package
 				cmdStr = strings.Join(insert(insert(parts, lastFIndex+1, "docker-compose.override.yml"), lastFIndex+1, "-f"), " ")
 			}
 		}
+		// Add the "watch" argument.
 		cmdStr = strings.ReplaceAll(cmdStr, "up", "watch")
+
+
 		log.Printf("Executing command: %s\n", cmdStr)
-		cmdParts := strings.Fields(cmdStr)
-		// Print part by part
-		for i, part := range cmdParts {
-			log.Println("Part %d: %s\n", i, part)
-		}
 		cmd := exec.Command("sh", "-c", cmdStr)
-		//cmd := exec.Command(cmdParts[0], cmdParts[1:]...)
 		
 		cmd.Dir = repoPath
 		cmd.Stderr = os.Stderr
 		//cmd.Stdout = os.Stdout
 
+		// If the command is the "watch" one.
 		if strings.Contains(cmdStr, "watch") && strings.Contains(cmdStr, "docker compose") {
 
 			// Start the watch process in the background
@@ -714,8 +649,8 @@ func dockerComposeHandler(repoName string, instructions_to_start string, package
 			}
 			
 
-			// --- FIX: RETRY LOOP ---
-			log.Printf("⏳ Waiting for containers to be created for: %v\n", serviceNames)
+			
+			log.Printf("Waiting for containers to be created for: %v\n", serviceNames)
 
 			maxRetries := 30
 			var waitErr error
@@ -725,6 +660,7 @@ func dockerComposeHandler(repoName string, instructions_to_start string, package
 				var nonHealthy = false
 
 				if err == nil {
+					// Save serviceNames into global value
 					log.Println("Architecture is healthy!")
 					waitErr = nil
 					break
@@ -749,7 +685,7 @@ func dockerComposeHandler(repoName string, instructions_to_start string, package
 					waitErr = err
 				} else {
 					log.Printf("Services not healthy!")
-					
+					//IDEA: This could need a "break" here but I don't want to cause any other bugs now.
 				}
 				
 			}
@@ -760,9 +696,7 @@ func dockerComposeHandler(repoName string, instructions_to_start string, package
 				return waitErr
 			}
 		} else {
-			
-		// Set the command's standard output to the Go application's standard output so we can see the output in the logs.
-		// cmd.Stdout = os.Stdout
+			// Every other command.
 			if err := cmd.Run(); err != nil {
 				log.Printf("Error executing command '%s': %s\n", cmdStr, err.Error())
 				return err
@@ -772,6 +706,7 @@ func dockerComposeHandler(repoName string, instructions_to_start string, package
 
 	return nil
 }
+// This is here mainly if we need in the future to go back using the github API.
 
 /**func ProcessRepositories(accessToken string, repos []*gogithub.Repository) {
     // 1. Initialize the client with the token you just got
