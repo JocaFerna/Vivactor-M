@@ -1,8 +1,9 @@
-import React, { useState } from 'react';
-import { ChevronLeft, Upload, Settings, FileText, Users, Play } from 'lucide-react';
+import React, { use, useState } from 'react';
+import { ChevronLeft, Upload, Settings, FileText, Users, Play, Waypoints } from 'lucide-react';
 import LoadArchModal from './modal/LoadArchModal';
 import { useGlobalStore } from '../store/useGlobalStore';
 import StartArchModal from './modal/StartArchModal';
+import RefactorModal from './modal/RefactorModal';
 
 const NavItem = ({ icon, title, onClick, open, active, gap }) => (
   <li
@@ -26,6 +27,11 @@ const Sidebar = () => {
   const [open, setOpen] = useState(true);
   const [isLoadModalOpen, setIsLoadModalOpen] = useState(false);
   const [isStartModalOpen, setIsStartModalOpen] = useState(false);
+  const [isRefactorModalOpen, setIsRefactorModalOpen] = useState(false);
+
+  // 1. CALL HOOKS AT THE TOP (UNCONDITIONALLY)
+  const architectureURL = useGlobalStore((state) => state.architectureURL);
+  const refactoringOfNonAPIVersioned = useGlobalStore((state) => state.refactoringOfNonAPIVersioned);
 
   return (
     <div className="flex">
@@ -59,8 +65,8 @@ const Sidebar = () => {
             onClick={() => setIsLoadModalOpen(true)} 
           />
 
-          {/* Only active when useGlobalStore().architectureURL is set, otherwise it should be disabled or hidden */}
-          {useGlobalStore().architectureURL && (
+          {/* 2. USE THE VARIABLES FOR CONDITIONS */}
+          {architectureURL && (
             <NavItem 
               icon={<Play size={20} />} 
               title="Start Architecture" 
@@ -69,7 +75,15 @@ const Sidebar = () => {
             />
           )}
 
-          {/* You can easily add more items here with their own specific onClick functions */}
+          {architectureURL && refactoringOfNonAPIVersioned && (
+            <NavItem 
+              icon={<Waypoints size={20} />} 
+              title="Refactor of Non-APIVersioned" 
+              open={open} 
+              onClick={() => setIsRefactorModalOpen(true)} 
+            />
+          )}
+
           <NavItem 
             icon={<FileText size={20} />} 
             title="Thesis Docs" 
@@ -87,6 +101,11 @@ const Sidebar = () => {
       <StartArchModal 
         isOpen={isStartModalOpen} 
         onClose={() => setIsStartModalOpen(false)} 
+      />
+      <RefactorModal 
+        isOpen={isRefactorModalOpen} 
+        onClose={() => setIsRefactorModalOpen(false)} 
+        typeOfRefactor= "nonAPIVersioned"
       />
     </div>
   );

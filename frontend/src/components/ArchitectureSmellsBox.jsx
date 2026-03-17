@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useState, useCallback, use } from 'react';
 import { useGlobalStore } from '../store/useGlobalStore';
 
 const ArchitectureSmellsBox = () => {
@@ -7,38 +7,44 @@ const ArchitectureSmellsBox = () => {
   const setIsRunning = (val) => useGlobalStore.setState({ isArchitectureRunning: val });
 
   const [hasError, setHasError] = useState(false);
-  const [smells, setSmells] = useState({ sharedLibraries: "N/A" });
+  const [smells, setSmells] = useState({ nonAPIVersioned: "N/A" });
 
   // 2. Memoize the fetch function to keep the effect clean
   const fetchSmells = useCallback(async () => {
     try {
-      const API_BASE = import.meta.env.VITE_MSANOSE_URL || "http://localhost:8080";
-      const response = await fetch(`${API_BASE}/api/v1/report`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          pathToCompiledMicroservices: "/app/downloads/piggymetrics/", 
-          organizationPath: "com.piggymetrics",
-          outputPath: ""
-        }),
-      });
+      const API_BASE = import.meta.env.VITE_ARCHITECTURAL_URL || "http://localhost:8080";
+
+      const params = new URLSearchParams({ url: useGlobalStore.getState().architectureURL });
+      if (useGlobalStore.getState().architectureURL == undefined){
+        return
+      }
+      const fullUrl = `${API_BASE}/smells/apiNonVersioned?${params.toString()}`;
+
+      
+      const response = await fetch(fullUrl);
 
       if (!response.ok) throw new Error(`HTTP ${response.status}`);
 
       const result = await response.json();
-      const libs = result.sharedLibraryContext?.sharedLibraries;
+      console.log("Fetched report:", result);
+      const libs = result.smells;
       
       const count = (libs !== undefined) 
         ? (Object.keys(libs).length > 0 ? Object.keys(libs).length : "Not Detected")
         : "N/A";
 
-      setSmells({ sharedLibraries: count });
+      setSmells({ nonAPIVersioned: count });
       setHasError(false);
 
       // Stop polling if we actually got data
       if (count !== "N/A") {
         setIsRunning(false);
+        if (count > 0) {
+          useGlobalStore.setState({ refactoringOfNonAPIVersioned: true });
+          useGlobalStore.setState({ refactoringOfNonAPIVersionedJSON: result.smells });
+        }
       }
+
     } catch (error) {
       console.error("Failed to fetch MSANose report:", error);
       setHasError(true);

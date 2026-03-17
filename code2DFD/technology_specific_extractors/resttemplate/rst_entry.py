@@ -5,6 +5,7 @@ import core.technology_switch as tech_sw
 from output_generators.logger import logger
 import output_generators.traceability as traceability
 import tmp.tmp as tmp
+import re
 
 
 def set_information_flows(dfd) -> dict:
@@ -68,7 +69,11 @@ def get_incoming_endpoints(dfd) -> list:
                     if m in line:
                         mapping_in_line = True
                         method = m.split("Mapping")[0]
+
+                #if mapping_in_line and not "import" in line and not "/*" in line and not "//" in line:
                 if mapping_in_line and not "import" in line:
+                    # Ensure that comments are unconsidered
+                    line = keep_only_code(line)
                     endpoint_part = extract_endpoint_part(line)
 
                 # manages the list of path-parts
@@ -94,6 +99,14 @@ def get_incoming_endpoints(dfd) -> list:
     tmp.tmp_config.set("DFD", "endpoints", str(endpoints))
     return endpoints
 
+def keep_only_code(line):
+    # Pattern explanation:
+    # (//.*)|(/\*.*?\*/)
+    # Matches // and everything after it OR matches /* anything */
+    pattern = r'(//.*)|(/\*.*?\*/)'
+    
+    # Replace the match with nothing, then clean up trailing whitespace
+    return re.sub(pattern, '', line).rstrip()
 
 def extract_endpoint_part(line: str) -> str:
     endpoint_part = ""
@@ -102,6 +115,7 @@ def extract_endpoint_part(line: str) -> str:
     elif "value" in line and "," in line and "\"" in line:       # usual keyword to describe path
         endpoint_part = line.split("value")[1].split(",")[0].split('\"')[1]
     elif not "," in line and "/" in line:       # only for the "/" endpoint
+        print(f'Line is: {line}')
         endpoint_part = line.split('\"')[1]
     return endpoint_part
 

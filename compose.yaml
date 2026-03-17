@@ -2,6 +2,7 @@ services:
   traefik:
     image: traefik:v3.0
     command:
+      - "--api.insecure=true"
       - "--api.dashboard=true"
       - "--providers.docker=true"
       - "--providers.docker.exposedbydefault=false"
@@ -38,21 +39,21 @@ services:
       context: ./architecture-retrieval
       dockerfile: Dockerfile 
     ports:  
-      - "8000:8000" # Assuming your backend runs on port 8000~
-      
+      - "8000:8000"
     volumes:
-      - nix_data:/nix  # This is where user-requested packages are cached
-      - ./architecture-retrieval:/app
+      # Match the Dockerfile WORKDIR
+      - ./architecture-retrieval:/api
       - ./repositories/downloads:/api/downloads
       - /var/run/docker.sock:/var/run/docker.sock
     environment:
-      - DOCKER_API_VERSION=1.41 # Optional: helps Go SDK negotiate version
+      - DOCKER_API_VERSION=1.41
+      - PATH=/home/harshcasper/.nix-profile/bin:/nix/var/nix/profiles/default/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+      - NIX_PATH=nixpkgs=channel:nixos-23.11
     env_file:
       - ./architecture-retrieval/.env
     user: "1000:1000"
     group_add:
       - "998"
-    stop_grace_period: 20s # Give it more time to clean up containers on shutdown
     networks:
       - shared_network
     labels:

@@ -13,6 +13,8 @@ import (
 	gogithub "github.com/google/go-github/v65/github"
 	"path/filepath"
 	"strings"
+	"architecture-retrieval/refactor/sharedLibraries"
+	"architecture-retrieval/smells/apiNonVersioned"
 )
 
 type Handler = func(writer http.ResponseWriter, request *http.Request)
@@ -24,6 +26,8 @@ func Register() {
 		"/":      home,
 		"/cloneRepository":  cloneHandler,
 		"/startArchitecture" : startHandler,
+		"/smells/apiNonVersioned": apiNonVersionedHandler,
+		"/refactor/mitigateSharedLibrarySmells": sharedLibsHandler,
 	}
 
 	for route, handler := range routes {
@@ -35,6 +39,63 @@ func Register() {
 
 func home(writer http.ResponseWriter, request *http.Request) {
 	fmt.Fprintf(writer, "{\"message\": \"Hello World\"}")
+}
+func apiNonVersionedHandler(writer http.ResponseWriter, request *http.Request) {
+	log.Println("Received API Non-Versioned detection request")
+	// Get the url properly
+	url := request.URL.Query().Get("url")
+	last_appearance_of_separator := strings.LastIndex(url,"/")
+	repo_name := request.URL.Query().Get("url")[last_appearance_of_separator:]
+	log.Printf("Detecting API Non-Versioned smells for repository: %s\n", repo_name)
+	
+	
+	nonAPIVersionedSmells, err := apiNonVersioned.DetectApiNonVersioned(repo_name)
+	if err != nil {
+		log.Printf("Error detecting API Non-Versioned smells: %s\n", err.Error())
+		
+		writer.WriteHeader(http.StatusInternalServerError)
+		writer.Write([]byte("{\"message\": \"Error detecting API Non-Versioned smells\"}"))
+		return
+	} else {
+		// Return 200 OK
+		
+		writer.WriteHeader(http.StatusOK)
+		// Add nonAPIVersionedSmells to the response body
+		response := "{\"message\": \"API Non-Versioned smells detected successfully\", \"smells\": ["
+		for i, smell := range nonAPIVersionedSmells {
+			response += fmt.Sprintf("\"%s\"", smell)
+			if i < len(nonAPIVersionedSmells)-1 {
+				response += ","
+			}
+		}
+		response += "]}"
+		writer.Write([]byte(response))
+		return
+	}
+}
+func sharedLibsHandler(writer http.ResponseWriter, request *http.Request) {
+	log.Println("Received mitigate shared library smells request")
+	// Get the url properly
+	url := request.URL.Query().Get("url")
+	last_appearance_of_separator := strings.LastIndex(url,"/")
+	repo_name := request.URL.Query().Get("url")[last_appearance_of_separator:]
+	log.Printf("Mitigating shared library smells for repository: %s\n", repo_name)
+
+	// Get the JSON data from the request body
+	jsonData := request.URL.Query().Get("data")
+	
+	err := sharedLibraries.MitigateSharedLibrarySmells(repo_name, jsonData)
+	if err != nil {
+		log.Printf("Error mitigating shared library smells: %s\n", err.Error())
+		writer.WriteHeader(http.StatusInternalServerError)
+		writer.Write([]byte("{\"message\": \"Error mitigating shared library smells\"}"))
+		return
+	} else {
+		// Return 200 OK
+		writer.WriteHeader(http.StatusOK)
+		writer.Write([]byte("{\"message\": \"Mitigating shared library smells...\"}"))
+		return
+	}
 }
 
 func cloneHandler(writer http.ResponseWriter, request *http.Request) {

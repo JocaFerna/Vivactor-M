@@ -5,6 +5,8 @@ export const useGlobalStore = create((set) => ({
     graphData: { nodes: [], edges: [] },
     isFetching: false,
     isArchitectureRunning: false,
+    refactoringOfNonAPIVersioned: false,
+    refactoringOfNonAPIVersionedJSON: null,
 
     // This is the function you can call from ANY file
     fetchGraphData: async () => {

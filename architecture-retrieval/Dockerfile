@@ -9,52 +9,41 @@ RUN go build -ldflags "-s -w" -o api main.go
 # 2. Runtime Stage
 FROM debian:bookworm-slim AS runtime
 
-# Install system dependencies for Nix and Docker CLI
+# Install system dependencies
 RUN apt-get update && apt-get install -y \
-    curl \
-    xz-utils \
-    sudo \
-    ca-certificates \
-    git \
-    make \
-    gnupg \
-    lsb-release \
+    curl xz-utils sudo ca-certificates git make gnupg lsb-release \
     && curl -fsSL https://download.docker.com/linux/debian/gpg | gpg --dearmor -o /usr/share/keyrings/docker-archive-keyring.gpg \
     && echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/docker-archive-keyring.gpg] https://download.docker.com/linux/debian $(lsb_release -cs) stable" > /etc/apt/sources.list.d/docker.list \
     && apt-get update && apt-get install -y docker-ce-cli \
     && apt-get clean && rm -rf /var/lib/apt/lists/*
 
-# Setup user (harshcasper)
+# Setup user
 ENV USER=harshcasper UID=1000
 RUN useradd -m -s /bin/bash -u ${UID} ${USER} && \
-    echo "${USER} ALL=(ALL) NOPASSWD:ALL" >> /etc/others
+    echo "${USER} ALL=(ALL) NOPASSWD:ALL" >> /etc/sudoers
 
-# --- NIX INSTALLATION (Single-User Mode) ---
-# Create /nix and give ownership to your user BEFORE installing
+# Nix Setup
 RUN mkdir -m 0755 /nix && chown ${USER}:${USER} /nix
-
 USER ${USER}
 WORKDIR /home/${USER}
-
-# Install Nix as the user
 RUN curl -L https://nixos.org/nix/install | sh -s -- --no-daemon
 
-# Update PATH for Nix
+# Paths
 ENV PATH="/home/${USER}/.nix-profile/bin:/nix/var/nix/profiles/default/bin:${PATH}"
 ENV NIX_PATH=nixpkgs=channel:nixos-23.11
+RUN echo ". /home/${USER}/.nix-profile/etc/profile.d/nix.sh" >> ~/.bashrc
 
-# --- PRESERVING YOUR CUSTOM PATHS ---
+# App Setup
 USER root
-WORKDIR /api
-RUN mkdir -p /nonexistent/.vscode-server/bin/7d842fb85a0275a4a8e4d7e040d2625abbf7f084_1771263114428 && \
-    chown -R ${USER}:${USER} /nonexistent /api
+# Move binary to /usr/local/bin so volumes don't overwrite it
+COPY --from=build --chown=${USER}:${USER} /api/api /usr/local/bin/api
+RUN chmod +x /usr/local/bin/api
 
-# Copy the Go API binary
-COPY --from=build --chown=${USER}:${USER} /api/api .
+# Create the app directory and set permissions
+WORKDIR /api
+RUN chown -R ${USER}:${USER} /api
 
 USER ${USER}
 EXPOSE 8000
-HEALTHCHECK --interval=30s --timeout=5s \
-    CMD curl -f http://localhost:8000/health || exit 1
-
-CMD ["./api"]
+# Execute the binary from the system path
+CMD ["api"]

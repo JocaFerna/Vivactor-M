@@ -19,7 +19,7 @@ const startSoftware = async (command, packageList) => {
           throw new Error(`Server error: ${response.status}`);
         } 
         
-        useGlobalStore.setState({ architectureURL: fullUrl }); // Store the URL in global state for later use
+        useGlobalStore.setState({ architectureURL: repoUrl }); // Store the URL in global state for later use
         useGlobalStore.setState({ isArchitectureRunning: true }); // Set the architecture as running in global state
 
         const result = await response.json();

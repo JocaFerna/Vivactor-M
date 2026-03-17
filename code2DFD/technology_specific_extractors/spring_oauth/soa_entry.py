@@ -2,6 +2,7 @@ import core.file_interaction as fi
 import technology_specific_extractors.environment_variables as env
 import core.technology_switch as tech_sw
 import output_generators.traceability as traceability
+import re
 
 
 def detect_spring_oauth(microservices: dict, information_flows: dict, dfd) -> dict:
@@ -189,6 +190,8 @@ def extract_endpoints(file_as_lines):
             endpoint = False
             for mapping in mappings:
                 if mapping in file_as_lines[line_nr + 1]:
+                # if mapping in file_as_lines[line_nr + 1] and not "/*" in file_as_lines[line_nr + 1] and not "//" in file_as_lines[line_nr + 1]:
+                    file_as_lines[line_nr + 1] = keep_only_code(file_as_lines[line_nr + 1])
                     endpoint = extract_endpoint_part(file_as_lines[line_nr + 1])
 
             if endpoint:
@@ -198,6 +201,14 @@ def extract_endpoints(file_as_lines):
     endpoints = list(endpoints)
     return endpoints
 
+def keep_only_code(line):
+    # Pattern explanation:
+    # (//.*)|(/\*.*?\*/)
+    # Matches // and everything after it OR matches /* anything */
+    pattern = r'(//.*)|(/\*.*?\*/)'
+    
+    # Replace the match with nothing, then clean up trailing whitespace
+    return re.sub(pattern, '', line).rstrip()
 
 def extract_endpoint_part(line: str) -> str:
     endpoint_part = str()
@@ -206,6 +217,7 @@ def extract_endpoint_part(line: str) -> str:
     elif "value" in line:       # usual keyword to describe path
         endpoint_part = line.split("value")[1].split(",")[0].split('\"')[1]
     elif not "," in line and "/" in line:       # only for the "/" endpoint
+        print(f'Line is: {line}')
         endpoint_part = line.split('\"')[1]
     return endpoint_part
 
