@@ -24,7 +24,7 @@ const refactorSoftware = async (repoUrl, refactorType, selectedApis) => {
                 url: architectureURL, 
                 data: JSON.stringify(apisToRefactor) 
             });
-            const fullUrl = `${API_BASE}/refactor/mitigateSharedLibrarySmells?${params.toString()}`;
+            const fullUrl = `${API_BASE}/refactor/mitigateNonAPIVersionedSmells?${params.toString()}`;
 
             // 2. Make the call
             const response = await fetch(fullUrl);

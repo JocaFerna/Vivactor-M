@@ -1,0 +1,88 @@
+{
+    "nodes":[
+        {
+            "id": "1",
+            "label": "accounts-service",
+            "type": "BasicNode", 
+            "properties": {
+                "language": "java",
+                "orderOfMagnitudeOfFiles": "10^2"
+            }
+        },
+        {
+            "id": "2",
+            "label": "orders-service",
+            "type": "BasicNode", 
+            "properties": {
+                "language": "python",
+                "orderOfMagnitudeOfFiles": "10^3"
+            }
+        },
+        {
+            "id": "3",
+            "label": "inventory-service",
+            "type": "BasicNode", 
+            "properties": {
+                "language": "javascript",
+                "orderOfMagnitudeOfFiles": "10^1"
+            }
+        },
+        {
+            "id": "4",
+            "label": "shipping-service",
+            "type": "BasicNode", 
+            "properties": {
+                "language": "html",
+                "orderOfMagnitudeOfFiles": "10^0"
+            }
+        },
+        {
+            "id": "5",
+            "label": "database-common",
+            "type": "DatabaseNode"
+        }
+    ],
+    "edges":[
+        {
+            "source": "1",
+            "target": "2",
+            "endpoint": "/api/endpoint1",
+            "properties": {
+                "callDefinitionInSource":"http://orders-service/api/endpoint1"
+            }
+        },
+        {
+            "source": "2",
+            "target": "3",
+            "endpoint": "/api/endpoint2",
+            "properties": {
+                "callDefinitionInSource":"http://inventory-service/api/endpoint2"
+            }
+        },
+        {
+            "source": "3",
+            "target": "4",
+            "endpoint": "/api/endpoint3",
+            "properties": {
+                "callDefinitionInSource":"http://localhost:2052/api/endpoint3"
+            }
+        }
+    ],
+    "systemContext": {
+        "name": "E-commerce System",
+        "description": "A simple e-commerce system with multiple services.",
+        "selfManagedLibraries": [
+            {
+                "name": "logging-library",
+                "servicesUsingLibrary": ["accounts-service", "orders-service", "shipping-service"]
+                
+            },
+            {
+                "name": "authentication-library",
+                "servicesUsingLibrary": ["accounts-service"]
+                
+            }
+        ],
+        "servicesSeparatedByBusinessDomain": true
+    }
+}

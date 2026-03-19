@@ -13,7 +13,7 @@ import (
 	gogithub "github.com/google/go-github/v65/github"
 	"path/filepath"
 	"strings"
-	"architecture-retrieval/refactor/sharedLibraries"
+	"architecture-retrieval/refactor/nonAPIVersioned"
 	"architecture-retrieval/smells/apiNonVersioned"
 )
 
@@ -27,7 +27,7 @@ func Register() {
 		"/cloneRepository":  cloneHandler,
 		"/startArchitecture" : startHandler,
 		"/smells/apiNonVersioned": apiNonVersionedHandler,
-		"/refactor/mitigateSharedLibrarySmells": sharedLibsHandler,
+		"/refactor/mitigateNonAPIVersionedSmells": nonAPIVersionedHandler,
 	}
 
 	for route, handler := range routes {
@@ -73,18 +73,20 @@ func apiNonVersionedHandler(writer http.ResponseWriter, request *http.Request) {
 		return
 	}
 }
-func sharedLibsHandler(writer http.ResponseWriter, request *http.Request) {
-	log.Println("Received mitigate shared library smells request")
+func nonAPIVersionedHandler(writer http.ResponseWriter, request *http.Request) {
+	log.Println("Received mitigate non-API versioned smells request")
 	// Get the url properly
 	url := request.URL.Query().Get("url")
 	last_appearance_of_separator := strings.LastIndex(url,"/")
 	repo_name := request.URL.Query().Get("url")[last_appearance_of_separator:]
-	log.Printf("Mitigating shared library smells for repository: %s\n", repo_name)
+	log.Printf("Mitigating non-API versioned smells for repository: %s\n", repo_name)
 
 	// Get the JSON data from the request body
 	jsonData := request.URL.Query().Get("data")
-	
-	err := sharedLibraries.MitigateSharedLibrarySmells(repo_name, jsonData)
+	nonAPIVersionedSmells := strings.Split(jsonData, ",")
+
+
+	err := nonAPIVersioned.MitigateNonAPIVersionedSmells(repo_name, nonAPIVersionedSmells)
 	if err != nil {
 		log.Printf("Error mitigating shared library smells: %s\n", err.Error())
 		writer.WriteHeader(http.StatusInternalServerError)

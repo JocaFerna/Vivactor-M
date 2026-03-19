@@ -42,13 +42,13 @@ services:
       - "8000:8000"
     volumes:
       # Match the Dockerfile WORKDIR
+      - nix_data:/nix
       - ./architecture-retrieval:/api
       - ./repositories/downloads:/api/downloads
       - /var/run/docker.sock:/var/run/docker.sock
     environment:
       - DOCKER_API_VERSION=1.41
-      - PATH=/home/harshcasper/.nix-profile/bin:/nix/var/nix/profiles/default/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
-      - NIX_PATH=nixpkgs=channel:nixos-23.11
+      
     env_file:
       - ./architecture-retrieval/.env
     user: "1000:1000"
