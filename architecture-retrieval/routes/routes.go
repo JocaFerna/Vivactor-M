@@ -15,6 +15,7 @@ import (
 	"strings"
 	"architecture-retrieval/refactor/nonAPIVersioned"
 	"architecture-retrieval/smells/apiNonVersioned"
+	"architecture-retrieval/architecture/emulation"
 )
 
 type Handler = func(writer http.ResponseWriter, request *http.Request)
@@ -28,6 +29,7 @@ func Register() {
 		"/startArchitecture" : startHandler,
 		"/smells/apiNonVersioned": apiNonVersionedHandler,
 		"/refactor/mitigateNonAPIVersionedSmells": nonAPIVersionedHandler,
+		"/emulateArchitecture" : emulateHandler,
 	}
 
 	for route, handler := range routes {
@@ -39,6 +41,28 @@ func Register() {
 
 func home(writer http.ResponseWriter, request *http.Request) {
 	fmt.Fprintf(writer, "{\"message\": \"Hello World\"}")
+}
+
+// Emulate the architecture -> Handling of the route
+func emulateHandler(writer http.ResponseWriter, request *http.Request) {
+	log.Println("Received Architecture Handling")
+	// Get the url properly
+	graph := request.URL.Query().Get("graph")
+	
+	// Call Architecture Emulation Block
+	err := emulation.EmulateArchitecture(graph)
+	if err != nil {
+		log.Printf("Error starting to emulate the desired architecture: %s\n", err.Error())
+		
+		writer.WriteHeader(http.StatusInternalServerError)
+		writer.Write([]byte("{\"message\": \"Error starting to emulate the desired architecture\"}"))
+		return
+	} else {
+		// Return 200 OK
+		writer.WriteHeader(http.StatusOK)
+		writer.Write([]byte("{\"message\": \"Architecture Emulated Successfully!\"}"))
+		return
+	}
 }
 func apiNonVersionedHandler(writer http.ResponseWriter, request *http.Request) {
 	log.Println("Received API Non-Versioned detection request")

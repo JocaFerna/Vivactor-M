@@ -1,9 +1,11 @@
 import React, { use, useState } from 'react';
-import { ChevronLeft, Upload, Settings, FileText, Users, Play, Waypoints } from 'lucide-react';
+import { ChevronLeft, Upload, Settings, FileText, Users, Play, Waypoints, Link,PackageSearch } from 'lucide-react';
 import LoadArchModal from './modal/LoadArchModal';
 import { useGlobalStore } from '../store/useGlobalStore';
 import StartArchModal from './modal/StartArchModal';
 import RefactorModal from './modal/RefactorModal';
+import LoadArchJsonModal from './modal/LoadArchJsonModal';
+import EmulateArchModal from './modal/EmulateArchModal';
 
 const NavItem = ({ icon, title, onClick, open, active, gap }) => (
   <li
@@ -26,12 +28,15 @@ const NavItem = ({ icon, title, onClick, open, active, gap }) => (
 const Sidebar = () => {
   const [open, setOpen] = useState(true);
   const [isLoadModalOpen, setIsLoadModalOpen] = useState(false);
+  const [isLoadModalJsonOpen, setIsLoadModalJsonOpen] = useState(false);
+  const [isEmulateModalOpen,setIsEmulateModalOpen] = useState(false);
   const [isStartModalOpen, setIsStartModalOpen] = useState(false);
   const [isRefactorModalOpen, setIsRefactorModalOpen] = useState(false);
 
   // 1. CALL HOOKS AT THE TOP (UNCONDITIONALLY)
   const architectureURL = useGlobalStore((state) => state.architectureURL);
   const refactoringOfNonAPIVersioned = useGlobalStore((state) => state.refactoringOfNonAPIVersioned);
+  const graphData = useGlobalStore((state) => state.graphData)
 
   return (
     <div className="flex">
@@ -58,11 +63,18 @@ const Sidebar = () => {
         {/* Menu Items */}
         <ul className="pt-6">
           <NavItem 
-            icon={<Upload size={20} />} 
-            title="Load Architecture" 
-            open={open} 
-            active={true}
+            icon={<Link size={20} />} 
+            title="Load Architecture via GITHUB - Outdated" 
+            open={open}
             onClick={() => setIsLoadModalOpen(true)} 
+          />
+
+          {/*Load Architecture Via JSON*/}
+          <NavItem 
+            icon={<Upload size={20} />} 
+            title="Load Architecture via JSON" 
+            open={open} 
+            onClick={() => setIsLoadModalJsonOpen(true)} 
           />
 
           {/* 2. USE THE VARIABLES FOR CONDITIONS */}
@@ -72,6 +84,15 @@ const Sidebar = () => {
               title="Start Architecture" 
               open={open} 
               onClick={() => setIsStartModalOpen(true)} 
+            />
+          )}
+
+          {graphData.nodes.length > 0 && (
+            <NavItem 
+              icon={<PackageSearch size={20} />} 
+              title="Emulate Architecture" 
+              open={open} 
+              onClick={() => setIsEmulateModalOpen(true)} 
             />
           )}
 
@@ -98,9 +119,17 @@ const Sidebar = () => {
         isOpen={isLoadModalOpen} 
         onClose={() => setIsLoadModalOpen(false)} 
       />
+      <LoadArchJsonModal 
+        isOpen={isLoadModalJsonOpen} 
+        onClose={() => setIsLoadModalJsonOpen(false)} 
+      />
       <StartArchModal 
         isOpen={isStartModalOpen} 
         onClose={() => setIsStartModalOpen(false)} 
+      />
+      <EmulateArchModal
+        isOpen={isEmulateModalOpen}
+        onClose={() => setIsEmulateModalOpen(false)}
       />
       <RefactorModal 
         isOpen={isRefactorModalOpen} 

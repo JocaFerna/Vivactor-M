@@ -1,0 +1,8 @@
+FROM postgres:15-alpine
+# Standard Postgres env vars for a dummy setup
+ENV POSTGRES_DB=emulation_db
+ENV POSTGRES_USER=user
+ENV POSTGRES_PASSWORD=pass
+
+# Add this line to your Alpine-based Dockerfile templates
+RUN apk add --no-cache netcat-openbsd

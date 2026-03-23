@@ -1,0 +1,9 @@
+server.createContext("{{ENDPOINT}}", (exchange) -> {
+    System.out.println("[{{SERVICE_NAME}}] Received call on {{ENDPOINT}}");
+    String response = "{\"status\":\"success\", \"from\":\"{{SERVICE_NAME}}\"}";
+    exchange.getResponseHeaders().set("Content-Type", "application/json");
+    exchange.sendResponseHeaders(200, response.length());
+    try (OutputStream os = exchange.getResponseBody()) {
+        os.write(response.getBytes());
+    }
+});

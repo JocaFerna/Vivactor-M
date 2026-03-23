@@ -1,0 +1,23 @@
+const http = require('http');
+
+const serviceName = "{{SERVICE_NAME}}";
+const port = 8080;
+
+const server = http.createServer((req, res) => {
+    console.log(`[${serviceName}] Received ${req.method} request on ${req.url}`);
+    
+    // Placeholder for Go to inject routing logic
+    // {{CUSTOM_ROUTES}}
+
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify({
+        status: "online",
+        service: serviceName,
+        language: "{{LANGUAGE}}",
+        message: `Hello from ${serviceName}`
+    }));
+});
+
+server.listen(port, '0.0.0.0', () => {
+    console.log(`🚀 ${serviceName} (Node.js) listening on 0.0.0.0:${port}`);
+});

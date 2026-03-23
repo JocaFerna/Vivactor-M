@@ -1,0 +1,21 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>{{SERVICE_NAME}} - Dashboard</title>
+    <style>
+        body { font-family: sans-serif; background: #f0f2f5; color: #1c1e21; }
+        .container { margin: 50px auto; max-width: 600px; padding: 20px; background: white; border-radius: 8px; }
+        .badge { background: #e7f3ff; color: #1877f2; padding: 5px 10px; border-radius: 4px; font-size: 0.8em; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Service: {{SERVICE_NAME}}</h1>
+        <p>This is an emulated frontend/UI for the <strong>{{SERVICE_NAME}}</strong>.</p>
+        <p>Primary Language: <span class="badge">{{LANGUAGE}}</span></p>
+        <hr>
+        <footer>Emulated Architecture Node ID: {{NODE_ID}}</footer>
+    </div>
+</body>
+</html>

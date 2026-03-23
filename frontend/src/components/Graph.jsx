@@ -14,7 +14,7 @@ const NODE_ICONS = {
 const Graph = () => {
     const irData = useGlobalStore((state) => state.graphData);
 
-    useEffect(() => {
+    /*useEffect(() => {
         if (!irData || !irData.nodes) {
             const fetchData = async () => {
                 try {
@@ -27,7 +27,7 @@ const Graph = () => {
             };
             fetchData();
         }
-    }, [irData]);
+    }, [irData]);*/
 
     // --- DELETE HANDLERS ---
     const deleteNode = useCallback((nodeId) => {
@@ -72,7 +72,7 @@ const Graph = () => {
         <div className="relative w-full h-full min-h-[500px] rounded-lg overflow-hidden bg-[#f8fafc]">
             {nodes.length === 0 ? (
                 <div className="flex items-center justify-center h-full text-gray-400 italic">
-                    Loading architecture graph...
+                    Please load an architecture or add some nodes!
                 </div>
             ) : (
                 <GraphCanvas

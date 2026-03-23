@@ -1,0 +1,4 @@
+if (req.url === '{{ENDPOINT}}' && req.method === 'GET') {
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    return res.end(JSON.stringify({ status: "success", from: serviceName }));
+}

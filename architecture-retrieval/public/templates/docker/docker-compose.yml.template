@@ -1,0 +1,9 @@
+version: '3.8'
+
+services:
+# {{SERVICES_BLOCK}}
+
+# shared_network for all containers to allow easy shutdown
+networks:
+  shared_network:
+    external: true

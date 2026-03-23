@@ -1,0 +1,8 @@
+FROM nginx:alpine
+
+# Add this line to your Alpine-based Dockerfile templates
+RUN apk add --no-cache netcat-openbsd
+
+# Copy your generated HTML into the Nginx public folder
+COPY . /usr/share/nginx/html
+EXPOSE 80

@@ -1,0 +1,14 @@
+FROM python:3.11-slim
+
+WORKDIR /app
+
+# Add this line to your Python/Slim Dockerfile template
+RUN apt-get update && apt-get install -y netcat-openbsd && rm -rf /var/lib/apt/lists/*
+
+# Install Flask directly to avoid needing extra files
+RUN pip install --no-cache-dir flask
+
+COPY . .
+
+# Ensure we use the main.py (or whatever name your Go code generates)
+CMD ["python", "main.py"]

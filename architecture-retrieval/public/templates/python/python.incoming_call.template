@@ -1,0 +1,4 @@
+@app.route('{{ENDPOINT}}', methods=['GET'])
+def handle_{{SAFE_NAME}}():
+    print(f"[{service_name}] Received call on {{ENDPOINT}}")
+    return jsonify({"status": "success", "from": "{{SERVICE_NAME}}"}), 200

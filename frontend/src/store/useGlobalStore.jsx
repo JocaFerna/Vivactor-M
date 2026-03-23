@@ -3,7 +3,8 @@ import { create } from 'zustand'
 export const useGlobalStore = create((set) => ({
     architectureURL: null,
     // Read graph data from json file and store it in the global state
-    graphData: null,
+    graphData: {nodes:[],edges:[]},
+    graphJSONRaw : null,
     isFetching: false,
     isArchitectureRunning: false,
     refactoringOfNonAPIVersioned: false,

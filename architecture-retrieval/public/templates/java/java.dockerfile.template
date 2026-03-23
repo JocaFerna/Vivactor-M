@@ -1,0 +1,7 @@
+FROM eclipse-temurin:17-jdk-alpine
+WORKDIR /app
+COPY . .
+# Add this line to your Alpine-based Dockerfile templates
+RUN apk add --no-cache netcat-openbsd
+# Run as a single-file source program (no javac needed)
+CMD ["java", "main.java"]

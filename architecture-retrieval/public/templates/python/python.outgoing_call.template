@@ -1,0 +1,32 @@
+To ensure your emulated architecture isn't just "sitting there" but actively generating traffic, we need a background loop. Since your servers (Flask, Node, Java) are blocking processes, the outgoing calls must run on separate threads or asynchronous loops.
+
+Here are the snippets for each language, designed to be injected by your Go orchestrator.
+1. Python Snippet (Threading + Requests)
+
+Since Flask's app.run() blocks the main thread, we use a threading.Thread to run the 10-second loop in the background.
+
+File: public/templates/python_outgoing.snippet
+Python
+
+import threading
+import time
+import requests
+
+def start_outgoing_calls():
+    def loop():
+        while True:
+            try:
+                # Call to: {{TARGET_LABEL}}
+                print(f"[{{SERVICE_NAME}}] Attempting call to {{TARGET_LABEL}}...")
+                resp = requests.get("http://{{TARGET_LABEL}}:8080{{ENDPOINT}}", timeout=5)
+                print(f"[{{SERVICE_NAME}}] Response from {{TARGET_LABEL}}: {resp.status_code}")
+            except Exception as e:
+                print(f"[{{SERVICE_NAME}}] Connection to {{TARGET_LABEL}} failed: {e}")
+            
+            time.sleep(10) # Wait 10 seconds
+
+    thread = threading.Thread(target=loop, daemon=True)
+    thread.start()
+
+# Trigger the background loop before starting Flask
+start_outgoing_calls()

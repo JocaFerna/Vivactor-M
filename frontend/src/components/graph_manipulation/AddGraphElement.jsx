@@ -97,6 +97,13 @@ const AddGraphElement = () => {
             selfManagedLibraries: [...prev.selfManagedLibraries, { name: '', servicesUsingLibrary: [] }]
         }));
     };
+    const removeLibraryField = (data) => {
+        setSystemForm(prev => ({
+            ...prev,
+            selfManagedLibraries: [...prev.selfManagedLibraries, { name: '', servicesUsingLibrary: [] }]
+        }));
+    };
+
 
     const updateLibraryName = (index, name) => {
         const updatedLibs = [...systemForm.selfManagedLibraries];
