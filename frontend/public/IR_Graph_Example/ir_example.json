@@ -48,7 +48,7 @@
             "target": "2",
             "endpoint": "/api/endpoint1",
             "properties": {
-                "callDefinitionInSource":"http://orders-service/api/endpoint1"
+                "callDefinitionInSource":"http://orders-service:8080/api/endpoint1"
             }
         },
         {
@@ -56,15 +56,15 @@
             "target": "3",
             "endpoint": "/api/endpoint2",
             "properties": {
-                "callDefinitionInSource":"http://inventory-service/api/endpoint2"
+                "callDefinitionInSource":"http://inventory-service:8080/api/endpoint2"
             }
         },
         {
             "source": "3",
-            "target": "4",
+            "target": "2",
             "endpoint": "/api/endpoint3",
             "properties": {
-                "callDefinitionInSource":"http://localhost:2052/api/endpoint3"
+                "callDefinitionInSource":"http://orders-service:8080/api/endpoint3"
             }
         }
     ],

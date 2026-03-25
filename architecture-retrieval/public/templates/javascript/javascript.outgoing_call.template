@@ -1,10 +1,8 @@
-const http = require('http');
-
 function startOutgoingCalls() {
     setInterval(() => {
         console.log(`[{{SERVICE_NAME}}] Attempting call to {{TARGET_LABEL}}...`);
         
-        http.get("http://{{TARGET_LABEL}}:8080{{ENDPOINT}}", (res) => {
+        http.get("[{{CALL_DEFINITION}}]", (res) => {
             console.log(`[{{SERVICE_NAME}}] Response from {{TARGET_LABEL}}: ${res.statusCode}`);
         }).on('error', (e) => {
             console.log(`[{{SERVICE_NAME}}] Connection to {{TARGET_LABEL}} failed: ${e.message}`);

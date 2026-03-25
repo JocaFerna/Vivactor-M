@@ -120,7 +120,48 @@ func EmulateArchitecture(graph string) error {
 		return fmt.Errorf("error generating docker-compose.yml: %w", err)
 	}
 
-	// 7. Build and start the Docker containers
+	// 7. Iterate through edges to add network connections
+	for _, edge := range graphStruct.Edges {
+		source := edge.Source
+		target := edge.Target
+
+		// 8. Find the corresponding nodes for source and target
+		sourceNode := findNodeByID(graphStruct.Nodes, source)
+		targetNode := findNodeByID(graphStruct.Nodes, target)
+
+
+		// Sanitize the labels
+		if sourceNode != nil {
+			sourceNode.Label = sanitizeString(sourceNode.Label)
+		}
+		if targetNode != nil {
+			targetNode.Label = sanitizeString(targetNode.Label)
+		}
+
+		if sourceNode != nil && targetNode != nil {
+
+			if sourceNode.Type != "DatabaseNode" && targetNode.Type != "DatabaseNode" {
+				// 9. Find the language of the source node to determine how to represent the call
+				lang_source := strings.ToLower(sourceNode.Properties.Language)
+				lang_target := strings.ToLower(targetNode.Properties.Language)
+
+				// 10. Insert the outgoing call into source node's main file
+				err := insertOutgoingCall(sourceNode, targetNode, edge, lang_source, basePath)
+				if err != nil {
+					log.Printf("Error inserting outgoing call from %s to %s: %v", sourceNode.Label, targetNode.Label, err)
+				}
+
+				// 11. Insert the incoming call into target node's main file
+				err = insertIncomingCall(targetNode, sourceNode, edge, lang_target, basePath)
+				if err != nil {
+					log.Printf("Error inserting incoming call to %s from %s: %v", targetNode.Label, sourceNode.Label, err)
+				}
+			}
+			// TODO: For now, we are ignoring edges from/to DatabaseNodes in terms of call representation, as they might not have "main" files or typical incoming/outgoing call logic.
+		}
+	}
+
+	// 12. Build and start the Docker containers
 	log.Println("Building and starting Docker containers...")
     err = startDockerCompose(basePath)
     if err != nil {
@@ -129,6 +170,148 @@ func EmulateArchitecture(graph string) error {
 
     log.Println("Architecture is successfully running!")
     return nil
+}
+
+// Sanitize a string
+func sanitizeString(input string) string {
+	return strings.Map(func(r rune) rune {
+		if (r >= 'a' && r <= 'z') || (r >= 'A' && r <= 'Z') || (r >= '0' && r <= '9') {
+			return r
+		}
+		return -1
+	}, input)
+}
+
+// Insert the incoming call representation into the target node's main file
+func insertIncomingCall(targetNode *graphparsing.Node, sourceNode *graphparsing.Node, edge graphparsing.Edge, lang string, basePath string) error {
+	// Configuration: mapping languages to their actual code extensions
+	extensions := map[string]string{
+		"java":       ".java",
+		"python":     ".py",
+		"javascript": ".js",
+		"html":       ".html",
+		"golang":     ".go",
+	}
+	
+
+	ext, ok := extensions[lang]
+	if !ok {
+		ext = ".txt"
+	}
+
+	if ext == ".html" || ext == ".txt" {
+		// For non-code files, we won't insert incoming call logic
+		return nil
+	}
+	// Read the existing main file content
+	mainFilePath := filepath.Join(basePath, targetNode.Label, "main"+ext)
+	mainContent, err := os.ReadFile(mainFilePath)
+	if err != nil {
+		return fmt.Errorf("error reading main file: %w", err)
+	}
+	
+
+	// Read from your public/templates folder
+	templatePath := filepath.Join("public", "templates",lang, lang+".incoming_call.template")
+	data, err := os.ReadFile(templatePath)
+	if err != nil {
+		return err
+	}
+
+	// Get safe name for the endpoint (e.g., replace slashes with underscores)
+	safeName := strings.ReplaceAll(edge.Endpoint, "/", "_")
+	safeName = strings.Trim(safeName, "_") // Remove leading/trailing underscores
+
+	// Manipulate the template content
+	content := string(data)
+	content = strings.ReplaceAll(content, "{{ENDPOINT}}", edge.Endpoint)
+	content = strings.ReplaceAll(content, "{{SAFE_NAME}}", safeName)
+	content = strings.ReplaceAll(content, "{{SERVICE_NAME}}", targetNode.Label)
+
+	// Append the outgoing call content to the main file
+	newContent := string(mainContent)
+	if lang != "python" {
+		newContent = strings.ReplaceAll(newContent, "//{{CUSTOM_ROUTES}}", content+"\n//{{CUSTOM_ROUTES}}") // Insert before the placeholder
+	} else {
+		newContent = strings.ReplaceAll(newContent, "#{{CUSTOM_ROUTES}}", content+"\n#{{CUSTOM_ROUTES}}") // Insert before the placeholder
+	}
+
+	// Write the updated content back to the main file
+	err = os.WriteFile(mainFilePath, []byte(newContent), 0644)
+	if err != nil {
+		return fmt.Errorf("error writing main file: %w", err)
+	}
+	return nil
+}
+// Insert the outgoing call representation into the source node's main file
+func insertOutgoingCall(sourceNode *graphparsing.Node, targetNode *graphparsing.Node, edge graphparsing.Edge, lang string, basePath string) error {
+	// Configuration: mapping languages to their actual code extensions
+	extensions := map[string]string{
+		"java":       ".java",
+		"python":     ".py",
+		"javascript": ".js",
+		"html":       ".html",
+		"golang":     ".go",
+	}
+
+	ext, ok := extensions[lang]
+	if !ok {
+		ext = ".txt"
+	}
+
+
+	if ext == ".html" || ext == ".txt" {
+		// For non-code files, we won't insert incoming call logic
+		return nil
+	}
+
+	// Read the existing main file content
+	mainFilePath := filepath.Join(basePath, sourceNode.Label, "main"+ext)
+	mainContent, err := os.ReadFile(mainFilePath)
+	if err != nil {
+		return fmt.Errorf("error reading main file: %w", err)
+	}
+	
+
+	// Read from your public/templates folder
+	templatePath := filepath.Join("public", "templates",lang, lang+".outgoing_call.template")
+	data, err := os.ReadFile(templatePath)
+	if err != nil {
+		return err
+	}
+
+	// Sanitize the call definition from hyphens
+	callDefSafe := strings.ReplaceAll(edge.Properties.CallDefinitionInSource, "-", "")
+	// Manipulate the template content
+	content := string(data)
+	content = strings.ReplaceAll(content, "{{SERVICE_NAME}}", sourceNode.Label)
+	content = strings.ReplaceAll(content, "{{TARGET_LABEL}}", targetNode.Label)
+	content = strings.ReplaceAll(content, "[{{CALL_DEFINITION}}]", callDefSafe)
+
+	// Append the outgoing call content to the main file
+	newContent := string(mainContent)
+	if lang != "python" {
+		newContent = strings.ReplaceAll(newContent, "//{{OUTGOING_CALLS}}", content+"\n//{{OUTGOING_CALLS}}") // Insert before the placeholder
+	} else {
+		newContent = strings.ReplaceAll(newContent, "#{{OUTGOING_CALLS}}", content+"\n#{{OUTGOING_CALLS}}") // Insert before the placeholder
+	}
+
+	// Write the updated content back to the main file
+	err = os.WriteFile(mainFilePath, []byte(newContent), 0644)
+	if err != nil {
+		return fmt.Errorf("error writing main file: %w", err)
+	}
+	return nil
+}
+
+// Find the node based on its ID
+func findNodeByID(nodes []graphparsing.Node, id string) *graphparsing.Node {
+	for _, node := range nodes {
+		if node.Id == id {
+			return &node
+		}
+	}
+	return nil
 }
 
 // Starts the architecture emulation by running the needed commands.

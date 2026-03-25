@@ -4,6 +4,13 @@ import com.sun.net.httpserver.HttpExchange;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.net.InetSocketAddress;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.TimeUnit;
+import java.net.http.HttpClient;
+import java.net.http.HttpRequest;
+import java.net.http.HttpResponse;
+import java.net.URI;
 
 public class main {
     public static void main(String[] args) throws IOException {
@@ -23,7 +30,11 @@ public class main {
         });
 
         // Placeholder for Go to inject more contexts/routes
-        // {{CUSTOM_ROUTES}}
+        //{{CUSTOM_ROUTES}}
+
+
+        // Placeholder for Go to inject outgoing call logic
+        //{{OUTGOING_CALLS}}
 
         System.out.println("🚀 {{SERVICE_NAME}} (Java) listening on 0.0.0.0:" + port);
         server.setExecutor(null); 

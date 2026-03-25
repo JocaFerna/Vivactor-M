@@ -1,5 +1,8 @@
 from flask import Flask, jsonify
 import os
+import threading
+import time
+import requests
 
 app = Flask(__name__)
 
@@ -13,10 +16,26 @@ def health():
     }), 200
 
 # Placeholder for Go to inject specific endpoints from your JSON "edges"
-# {{CUSTOM_ROUTES}}
+#{{CUSTOM_ROUTES}}
+
+def start_outgoing_calls():
+    def loop():
+        while True:
+            try:
+                print(f"{{SERVICE_NAME}} making outgoing calls...") # Placeholder to prevent errors
+#{{OUTGOING_CALLS}}
+            except Exception as e:
+                print(f"Connection from {{SERVICE_NAME}} failed: {e}")
+            
+            time.sleep(10) # Wait 10 seconds
+
+    thread = threading.Thread(target=loop, daemon=True)
+    thread.start()
 
 if __name__ == "__main__":
     # CRITICAL: host must be 0.0.0.0 to be reachable inside Docker
     port = int(os.environ.get("PORT", 8080))
+    start_outgoing_calls()  # Start any outgoing call loops after the server is up
     print(f"Starting {{SERVICE_NAME}} on port {port}...")
     app.run(host='0.0.0.0', port=port)
+    
