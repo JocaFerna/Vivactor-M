@@ -2,16 +2,19 @@ package emulation
 
 import (
 	graphparsing "architecture-retrieval/architecture/graphParsing"
+	"bufio"
+	"bytes"
+	"encoding/json"
 	"fmt"
+	"log"
 	"math"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strconv"
 	"strings"
-	"log"
-	"os/exec"
+	"time"
 )
-
 
 // Given a graph in JSON format (stringified), this function will create a folder structure with files and a docker-compose.yml to emulate the architecture
 func EmulateArchitecture(graph string) error {
@@ -39,6 +42,9 @@ func EmulateArchitecture(graph string) error {
 	// This will hold the content for the docker-compose.yml file
 	var servicesYaml strings.Builder
 
+	// Service Names needed for health checks later
+	expectedServices := make(map[string]int)
+
 	for _, node := range graphStruct.Nodes {
 		// Name sanitization: remove spaces and special characters for folder names
 		node.Label = strings.Map(func(r rune) rune {
@@ -47,6 +53,7 @@ func EmulateArchitecture(graph string) error {
 		}
 		return -1
 		}, node.Label)
+		expectedServices[node.Label] = 0
 
 		serviceDir := filepath.Join(basePath, node.Label)
 		os.MkdirAll(serviceDir, 0755)
@@ -109,8 +116,45 @@ func EmulateArchitecture(graph string) error {
 		servicesYaml.WriteString("      interval: 5s\n")
 		servicesYaml.WriteString("      timeout: 5s\n")
 		servicesYaml.WriteString("      retries: 5\n")
-		
 
+		
+		// 5.5. Generate the Docker Compose "Watch" block (develop)
+		lang := strings.ToLower(node.Properties.Language)
+		var watchAction, watchTarget, watchIgnore string
+
+		switch lang {
+			case "html":
+				watchAction = "sync"
+				watchTarget = "/usr/share/nginx/html"
+			case "python":
+				watchAction = "sync+restart"
+				watchTarget = "/app"
+				// Standardized indentation: 12 spaces for each list item
+				watchIgnore = "            - \"**/__pycache__/**\"\n            - \"**/.pytest_cache/**\""
+			case "javascript", "js":
+				watchAction = "sync+restart"
+				watchTarget = "/app"
+				watchIgnore = "            - \"**/node_modules/**\""
+			case "java":
+				watchAction = "sync+restart"
+				watchTarget = "/app"
+			default:
+				watchAction = "rebuild"
+				watchTarget = "/app"
+		}
+
+		// Write the develop/watch section to the YAML buffer
+		servicesYaml.WriteString("    develop:\n")
+		servicesYaml.WriteString("      watch:\n")
+		servicesYaml.WriteString(fmt.Sprintf("        - action: %s\n", watchAction))
+		servicesYaml.WriteString(fmt.Sprintf("          path: ./%s\n", node.Label))
+		servicesYaml.WriteString(fmt.Sprintf("          target: %s\n", watchTarget))
+
+		if watchIgnore != "" {
+			// We write the key 'ignore:' and then a newline before pasting the items
+			servicesYaml.WriteString("          ignore:\n")
+			servicesYaml.WriteString(fmt.Sprintf("%s\n", watchIgnore))
+		}
 		servicesYaml.WriteString("\n")
 	}
 
@@ -163,10 +207,56 @@ func EmulateArchitecture(graph string) error {
 
 	// 12. Build and start the Docker containers
 	log.Println("Building and starting Docker containers...")
-    err = startDockerCompose(basePath)
+    process, err := startDockerCompose(basePath)
     if err != nil {
         return fmt.Errorf("failed to start architecture: %w", err)
     }
+
+	// 13. Check health status of container.
+	// This works by running `docker compose ps --format json` and parsing the output to verify that all expected services are running and healthy. We will retry this check several times with a delay in between, to give the containers time to start up and become healthy.
+	maxRetries := 30
+	var waitErr error
+
+	for i := 0; i < maxRetries; i++ {
+		err := checkComposeHealth(basePath, expectedServices)
+		var nonHealthy = false
+
+		if err == nil {
+			// Save serviceNames into global value
+			log.Println("Architecture is healthy!")
+			waitErr = nil
+			break
+		}
+
+		switch err.(type) {
+
+		case *ServiceUnhealthyError:
+			nonHealthy = true
+			log.Printf("Service unhealthy: %v", err)
+
+		case *ServiceNotStartedError:
+			log.Printf("Service not started yet: %v", err)
+
+		default:
+			log.Printf("Unknown error: %v", err)
+		}
+		if !nonHealthy {
+			log.Printf("Waiting for services to start... (attempt %d/%d)\n", i+1, maxRetries)
+			// Wait for 10 seconds before retrying
+			time.Sleep(10 * time.Second)
+			waitErr = err
+		} else {
+			log.Printf("Services not healthy!")
+			//IDEA: This could need a "break" here but I don't want to cause any other bugs now.
+		}
+		
+	}
+
+	if waitErr != nil {
+		log.Printf("Wait failed after retries: %s. Killing watch process.\n", waitErr.Error())
+		process.Process.Kill()
+		return waitErr
+	}
 
     log.Println("Architecture is successfully running!")
     return nil
@@ -304,6 +394,95 @@ func insertOutgoingCall(sourceNode *graphparsing.Node, targetNode *graphparsing.
 	return nil
 }
 
+// Structure matching docker compose ps --format json output
+type ComposeContainer struct {
+	Service string `json:"Service"`
+	Name    string `json:"Name"`
+	State   string `json:"State"`
+	Health  string `json:"Health"`
+}
+
+// Error when a service is not started
+type ServiceNotStartedError struct {
+	Service string
+	State   string
+}
+
+func (e *ServiceNotStartedError) Error() string {
+	return fmt.Sprintf("service %s not started (state: %s)", e.Service, e.State)
+}
+
+// Error when a service is unhealthy
+type ServiceUnhealthyError struct {
+	Service string
+	Health  string
+}
+func (e *ServiceUnhealthyError) Error() string {
+	return fmt.Sprintf("service %s unhealthy (health: %s)", e.Service, e.Health)
+}
+
+// checkComposeHealth runs `docker compose ps --format json`,
+// parses the output line-by-line, and verifies that all expected
+// services are running and healthy.
+func checkComposeHealth(repoPath string, expectedServices map[string]int) error {
+
+	cmd := exec.Command("docker", "compose", "ps", "--format", "json")
+	cmd.Dir = repoPath
+
+	out, err := cmd.Output()
+	if err != nil {
+		return fmt.Errorf("failed to run docker compose ps: %w", err)
+	}
+
+	scanner := bufio.NewScanner(bytes.NewReader(out))
+
+	foundServices := map[string]bool{}
+
+	for scanner.Scan() {
+
+		var container ComposeContainer
+		line := scanner.Bytes()
+
+		if err := json.Unmarshal(line, &container); err != nil {
+			return fmt.Errorf("failed to parse compose JSON: %w", err)
+		}
+
+		foundServices[container.Service] = true
+
+		// Check if container is running
+		if container.State != "running" || container.Health == "starting" {
+			return &ServiceNotStartedError{
+				Service: container.Service,
+				State:   container.State,
+			}
+		}
+
+		// Check health status if healthcheck exists
+		if container.Health != "" && container.Health != "healthy" {
+			return &ServiceUnhealthyError{
+				Service: container.Service,
+				Health:  container.Health,
+			}
+		}
+	}
+
+	if err := scanner.Err(); err != nil {
+		return err
+	}
+
+	// Verify all expected services appeared
+	for service := range expectedServices {
+		if !foundServices[service] {
+			return &ServiceNotStartedError{
+				Service: service,
+				State:   "missing",
+			}
+		}
+	}
+
+	return nil
+}
+
 // Find the node based on its ID
 func findNodeByID(nodes []graphparsing.Node, id string) *graphparsing.Node {
 	for _, node := range nodes {
@@ -315,29 +494,27 @@ func findNodeByID(nodes []graphparsing.Node, id string) *graphparsing.Node {
 }
 
 // Starts the architecture emulation by running the needed commands.
-func startDockerCompose(basePath string) error {
+func startDockerCompose(basePath string) (*exec.Cmd, error) {
 	// 1. Run 'docker compose build'
 	buildCmd := exec.Command("docker", "compose", "build")
 	buildCmd.Dir = basePath
 	//buildCmd.Stdout = os.Stdout // Pipe output to see build progress
 	buildCmd.Stderr = os.Stderr
 	if err := buildCmd.Run(); err != nil {
-		return fmt.Errorf("docker compose build failed: %w", err)
+		return nil, fmt.Errorf("docker compose build failed: %w", err)
 	}
 
-	// 2. Run 'docker compose up -d'
-	// We use -d (detached) so the Go orchestrator doesn't hang 
-    // while waiting for the microservices to finish.
-	// We also add --wait to ensure it waits for healthy status if healthchecks are defined in the Dockerfiles.
-	upCmd := exec.Command("docker", "compose", "up", "-d", "--wait") // --wait ensures it waits for healthy status if healthchecks are defined
+	
+	// 2. Run 'docker compose watch' to start containers and wait for health
+	upCmd := exec.Command("docker", "compose", "watch") // --wait ensures it waits for healthy status if healthchecks are defined
 	upCmd.Dir = basePath
 	//upCmd.Stdout = os.Stdout
 	upCmd.Stderr = os.Stderr
-	if err := upCmd.Run(); err != nil {
-		return fmt.Errorf("docker compose up failed: %w", err)
+	if err := upCmd.Start(); err != nil {
+		return nil, fmt.Errorf("docker compose up failed: %w", err)
 	}
 
-	return nil
+	return upCmd, nil
 }
 
 // Generate the root docker-compose.yml file using the services block
