@@ -1,21 +1,23 @@
 package routes
 
 import (
-	"fmt"
-	"log"
-	"context"
-	"time"
-	"net/http"
 	"architecture-retrieval/architecture"
-	"golang.org/x/oauth2"
-	"golang.org/x/oauth2/github"
-	"os"
-	gogithub "github.com/google/go-github/v65/github"
-	"path/filepath"
-	"strings"
+	"architecture-retrieval/architecture/emulation"
 	"architecture-retrieval/refactor/nonAPIVersioned"
 	"architecture-retrieval/smells/apiNonVersioned"
-	"architecture-retrieval/architecture/emulation"
+	"architecture-retrieval/smells/cyclicDependency"
+	"context"
+	"fmt"
+	"log"
+	"net/http"
+	"os"
+	"path/filepath"
+	"strings"
+	"time"
+
+	gogithub "github.com/google/go-github/v65/github"
+	"golang.org/x/oauth2"
+	"golang.org/x/oauth2/github"
 )
 
 type Handler = func(writer http.ResponseWriter, request *http.Request)
@@ -25,11 +27,19 @@ func Register() {
 	log.Println("Registering routes")
 	routes := map[string]Handler{
 		"/":      home,
+		
+		// Architecture Handling
 		"/cloneRepository":  cloneHandler,
 		"/startArchitecture" : startHandler,
-		"/smells/apiNonVersioned": apiNonVersionedHandler,
-		"/refactor/mitigateNonAPIVersionedSmells": nonAPIVersionedHandler,
 		"/emulateArchitecture" : emulateHandler,
+
+		// Smells Detection
+		"/smells/apiNonVersioned": apiNonVersionedHandler,
+		"/smells/cyclicDependency": cyclicDependencyHandler,
+
+		// Refactor Handling
+		"/refactor/mitigateNonAPIVersionedSmells": nonAPIVersionedHandler,
+		
 	}
 
 	for route, handler := range routes {
@@ -42,6 +52,47 @@ func Register() {
 func home(writer http.ResponseWriter, request *http.Request) {
 	fmt.Fprintf(writer, "{\"message\": \"Hello World\"}")
 }
+
+// Cyclic Dependency -> Handling of the route
+func cyclicDependencyHandler(writer http.ResponseWriter, request *http.Request) {
+	log.Println("Received Cyclic Dependency detection request")
+	// Get the url properly
+	graph := request.URL.Query().Get("graph")
+	log.Printf("Detecting Cyclic Dependencies")
+	
+	
+	cycles, err := cyclicDependency.DetectCyclicDependency(graph)
+	if err != nil {
+		log.Printf("Error detecting Cyclic Dependencies: %s\n", err.Error())
+		
+		writer.WriteHeader(http.StatusInternalServerError)
+		writer.Write([]byte("{\"message\": \"Error detecting Cyclic Dependencies\"}"))
+		return
+	} else {
+		// Return 200 OK
+		
+		writer.WriteHeader(http.StatusOK)
+		// Add cycles to the response body
+		response := "{\"message\": \"Cyclic Dependencies detected successfully\", \"smells\": {\"cycles\": ["
+		for i, cycle := range cycles {
+			response += "["
+			for j, node := range cycle {
+				response += fmt.Sprintf("\"%s\"", node)
+				if j < len(cycle)-1 {
+					response += ","
+				}
+			}
+			response += "]"
+			if i < len(cycles)-1 {
+				response += ","
+			}
+		}
+		response += "]}}"
+		writer.Write([]byte(response))
+		return
+	}
+}
+
 
 // Emulate the architecture -> Handling of the route
 func emulateHandler(writer http.ResponseWriter, request *http.Request) {
@@ -67,13 +118,11 @@ func emulateHandler(writer http.ResponseWriter, request *http.Request) {
 func apiNonVersionedHandler(writer http.ResponseWriter, request *http.Request) {
 	log.Println("Received API Non-Versioned detection request")
 	// Get the url properly
-	url := request.URL.Query().Get("url")
-	last_appearance_of_separator := strings.LastIndex(url,"/")
-	repo_name := request.URL.Query().Get("url")[last_appearance_of_separator:]
-	log.Printf("Detecting API Non-Versioned smells for repository: %s\n", repo_name)
+	graph := request.URL.Query().Get("graph")
+	log.Printf("Detecting API Non-Versioned smells")
 	
 	
-	nonAPIVersionedSmells, err := apiNonVersioned.DetectApiNonVersioned(repo_name)
+	nonAPIVersionedSmells, err := apiNonVersioned.DetectApiNonVersioned(graph)
 	if err != nil {
 		log.Printf("Error detecting API Non-Versioned smells: %s\n", err.Error())
 		
@@ -85,14 +134,14 @@ func apiNonVersionedHandler(writer http.ResponseWriter, request *http.Request) {
 		
 		writer.WriteHeader(http.StatusOK)
 		// Add nonAPIVersionedSmells to the response body
-		response := "{\"message\": \"API Non-Versioned smells detected successfully\", \"smells\": ["
+		response := "{\"message\": \"API Non-Versioned smells detected successfully\", \"smells\": {\"nonAPIVersionedEndpoints\": ["
 		for i, smell := range nonAPIVersionedSmells {
 			response += fmt.Sprintf("\"%s\"", smell)
 			if i < len(nonAPIVersionedSmells)-1 {
 				response += ","
 			}
 		}
-		response += "]}"
+		response += "]}}"
 		writer.Write([]byte(response))
 		return
 	}

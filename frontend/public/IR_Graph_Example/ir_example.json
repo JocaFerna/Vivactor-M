@@ -61,10 +61,10 @@
         },
         {
             "source": "3",
-            "target": "2",
+            "target": "1",
             "endpoint": "/api/endpoint3",
             "properties": {
-                "callDefinitionInSource":"http://orders-service:8080/api/endpoint3"
+                "callDefinitionInSource":"http://accounts-service:8080/api/endpoint3"
             }
         }
     ],

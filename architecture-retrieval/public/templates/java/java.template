@@ -28,6 +28,9 @@ public class main {
                 os.close();
             }
         });
+        // Inside the main class or a dedicated method:
+        ScheduledExecutorService scheduler = Executors.newSingleThreadScheduledExecutor();
+        HttpClient client = HttpClient.newHttpClient(); 
 
         // Placeholder for Go to inject more contexts/routes
         //{{CUSTOM_ROUTES}}

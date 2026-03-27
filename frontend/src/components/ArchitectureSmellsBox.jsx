@@ -7,18 +7,21 @@ const ArchitectureSmellsBox = () => {
   const setIsRunning = (val) => useGlobalStore.setState({ isArchitectureRunning: val });
 
   const [hasError, setHasError] = useState(false);
-  const [smells, setSmells] = useState({ nonAPIVersioned: "N/A" });
+  const [smells, setSmells] = useState({ 
+    nonAPIVersioned: "N/A",
+    cyclicDependency: "N/A"
+  });
 
   // 2. Memoize the fetch function to keep the effect clean
   const fetchSmells = useCallback(async () => {
     try {
       const API_BASE = import.meta.env.VITE_ARCHITECTURAL_URL || "http://localhost:8080";
 
-      const params = new URLSearchParams({ url: useGlobalStore.getState().architectureURL });
-      if (useGlobalStore.getState().architectureURL == undefined){
+      const params = new URLSearchParams({ graph: JSON.stringify(useGlobalStore.getState().graphData) });
+      if (useGlobalStore.getState().graphData == undefined){
         return
       }
-      const fullUrl = `${API_BASE}/smells/apiNonVersioned?${params.toString()}`;
+      const fullUrl = `${API_BASE}/smells/cyclicDependency?${params.toString()}`;
 
       
       const response = await fetch(fullUrl);
@@ -27,19 +30,42 @@ const ArchitectureSmellsBox = () => {
 
       const result = await response.json();
       console.log("Fetched report:", result);
-      const libs = result.smells;
+
+
+      // The following blocks will extract the relevant data for each smell and update the state accordingly.
+
+
+
+      // Extract the relevant data -> nonAPIVerisoned
+      const nonAPIVersioned = result.smells?.nonAPIVersionedEndpoints;
       
-      const count = (libs !== undefined) 
-        ? (Object.keys(libs).length > 0 ? Object.keys(libs).length : "Not Detected")
+      const countAPIVersioned = (nonAPIVersioned !== undefined) 
+        ? (Object.keys(nonAPIVersioned).length > 0 ? Object.keys(nonAPIVersioned).length : "Not Detected")
         : "N/A";
 
-      setSmells({ nonAPIVersioned: count });
+      setSmells(prev => ({ ...prev, nonAPIVersioned: countAPIVersioned }));
       setHasError(false);
 
+
+
+
+      // Extract the relevant data -> Cyclic Dependency
+      const cyclicDependency = result.smells?.cycles;
+
+      const countCyclicDependency = (cyclicDependency !== undefined)
+        ? (cyclicDependency.length > 0 ? cyclicDependency.length : "Not Detected")
+        : "N/A";
+
+      setSmells(prev => ({ ...prev, cyclicDependency: countCyclicDependency }));
+      setHasError(false);
+
+
+      
+
       // Stop polling if we actually got data
-      if (count !== "N/A") {
+      if (countAPIVersioned !== "N/A" && countCyclicDependency !== "N/A") {
         setIsRunning(false);
-        if (count > 0) {
+        if (countAPIVersioned > 0) {
           useGlobalStore.setState({ refactoringOfNonAPIVersioned: true });
           useGlobalStore.setState({ refactoringOfNonAPIVersionedJSON: result.smells });
         }

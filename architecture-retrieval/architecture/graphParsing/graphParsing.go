@@ -56,3 +56,45 @@ func ParseGraph (graph string) (Graph, error) {
 		return result, nil
 	}
 }
+
+func GetNodeById(graph Graph, id string) (Node, error) {
+	for _, node := range graph.Nodes {
+		if node.Id == id {
+			return node, nil
+		}
+	}
+	var none Node
+	return none, fmt.Errorf("Node with id %s not found", id)
+}
+
+func GetAdjacentNodes(graph Graph, nodeId string) ([]*Node, error) {
+    var adjacentNodes []*Node
+    for _, edge := range graph.Edges {
+        if edge.Source == nodeId {
+            // FIX: Find the node in the actual Nodes slice and take its address
+            found := false
+            for i := range graph.Nodes {
+                if graph.Nodes[i].Id == edge.Target {
+                    adjacentNodes = append(adjacentNodes, &graph.Nodes[i])
+                    found = true
+                    break
+                }
+            }
+            if !found {
+                return nil, fmt.Errorf("Target node %s not found", edge.Target)
+            }
+        }
+    }
+    return adjacentNodes, nil
+}
+
+func RemoveNodeAsAdjacent(adjList map[*Node][]*Node, nodeSource *Node, nodeToRemove *Node) map[*Node][]*Node {
+	neighbors := adjList[nodeSource]
+	for i, neighbor := range neighbors {
+		if neighbor == nodeToRemove {
+			adjList[nodeSource] = append(neighbors[:i], neighbors[i+1:]...)
+			break
+		}
+	}
+	return adjList
+}

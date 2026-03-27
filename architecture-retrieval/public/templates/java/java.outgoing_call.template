@@ -1,7 +1,3 @@
-// Inside the main class or a dedicated method:
-ScheduledExecutorService scheduler = Executors.newSingleThreadScheduledExecutor();
-HttpClient client = HttpClient.newHttpClient();
-
 scheduler.scheduleAtFixedRate(() -> {
     try {
         System.out.println("[{{SERVICE_NAME}}] Attempting call to {{TARGET_LABEL}}...");

@@ -44,6 +44,11 @@ func SetupCleanupHandler() {
 				}
 			}
 		}
+		//TODO: There are some services that aren't beings stopped
+		// due to the fact that they have active sub-threads.
+		// We should deal with that here.
+
+		
 		os.Exit(0) // Now we can safely exit
 	}()
 }
