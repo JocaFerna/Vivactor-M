@@ -9,7 +9,9 @@ const ArchitectureSmellsBox = () => {
   const [hasError, setHasError] = useState(false);
   const [smells, setSmells] = useState({ 
     nonAPIVersioned: "N/A",
-    cyclicDependency: "N/A"
+    cyclicDependency: "N/A",
+    esbUsage: "N/A",
+    hardcodedEndpoints: "N/A"
   });
 
   // 2. Memoize the fetch function to keep the effect clean
@@ -21,7 +23,7 @@ const ArchitectureSmellsBox = () => {
       if (useGlobalStore.getState().graphData == undefined){
         return
       }
-      const fullUrl = `${API_BASE}/smells/cyclicDependency?${params.toString()}`;
+      const fullUrl = `${API_BASE}/smells/hardcodedEndpoints?${params.toString()}`;
 
       
       const response = await fetch(fullUrl);
@@ -60,7 +62,22 @@ const ArchitectureSmellsBox = () => {
       setHasError(false);
 
 
+      // Extract the relevant data -> ESB Usage
+      const esbUsage = result.smells?.esbUsage ? "Detected" : "Not Detected";
       
+      setSmells(prev => ({ ...prev, esbUsage: esbUsage }));
+      setHasError(false);
+
+
+      // Extract the relevant data -> Hardcoded Endpoints
+      const hardcodedEndpoints = result.smells?.hardcodedEndpoints;
+      const countHardcodedEndpoints = (hardcodedEndpoints !== undefined)
+        ? (hardcodedEndpoints.length > 0 ? hardcodedEndpoints.length : "Not Detected")
+        : "N/A";
+        
+      setSmells(prev => ({ ...prev, hardcodedEndpoints: countHardcodedEndpoints }));
+      setHasError(false);
+
 
       // Stop polling if we actually got data
       if (countAPIVersioned !== "N/A" && countCyclicDependency !== "N/A") {
@@ -115,7 +132,10 @@ const ArchitectureSmellsBox = () => {
             <span className="capitalize text-slate-400">
               {key.replace(/([A-Z])/g, ' $1')}:
             </span>
-            <span className={`font-mono font-medium ${hasError ? 'text-red-600' : (value > 0 ? 'text-red-400' : 'text-green-400')}`}>
+            <span className={`font-mono font-medium ${hasError ? 'text-red-600' : 
+              (value == "Detected" ? 'text-red-400' : 
+              (value == "Non Detected" ? 'text-green-400' :
+              (value > 0 ? 'text-red-400' : 'text-green-400')))}`}>
               {hasError ? "ERROR" : value}
             </span>
           </div>

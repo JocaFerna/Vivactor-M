@@ -6,6 +6,8 @@ import (
 	"architecture-retrieval/refactor/nonAPIVersioned"
 	"architecture-retrieval/smells/apiNonVersioned"
 	"architecture-retrieval/smells/cyclicDependency"
+	"architecture-retrieval/smells/esbUsage"
+	"architecture-retrieval/smells/hardCodedEndpoints"
 	"context"
 	"fmt"
 	"log"
@@ -36,6 +38,8 @@ func Register() {
 		// Smells Detection
 		"/smells/apiNonVersioned": apiNonVersionedHandler,
 		"/smells/cyclicDependency": cyclicDependencyHandler,
+		"/smells/esbUsage": esbUsageHandler,
+		"/smells/hardcodedEndpoints": hardcodedEndpointsHandler,
 
 		// Refactor Handling
 		"/refactor/mitigateNonAPIVersionedSmells": nonAPIVersionedHandler,
@@ -52,6 +56,66 @@ func Register() {
 func home(writer http.ResponseWriter, request *http.Request) {
 	fmt.Fprintf(writer, "{\"message\": \"Hello World\"}")
 }
+
+// Hardcoded Endpoints -> Handling of the route
+func hardcodedEndpointsHandler(writer http.ResponseWriter, request *http.Request) {
+	log.Println("Received Hardcoded Endpoints detection request")
+	// Get the url properly
+	graph := request.URL.Query().Get("graph")
+	log.Printf("Detecting Hardcoded Endpoints smells")
+	
+	
+	hardcodedEndpointsSmells, err := hardCodedEndpoints.DetectHardCodedEndpoints(graph)
+	if err != nil {
+		log.Printf("Error detecting Hardcoded Endpoints smells: %s\n", err.Error())
+		
+		writer.WriteHeader(http.StatusInternalServerError)
+		writer.Write([]byte("{\"message\": \"Error detecting Hardcoded Endpoints smells\"}"))
+		return
+	} else {
+		// Return 200 OK
+		
+		writer.WriteHeader(http.StatusOK)
+		// Add hardcodedEndpointsSmells to the response body
+		response := "{\"message\": \"Hardcoded Endpoints smells detected successfully\", \"smells\": {\"hardcodedEndpoints\": ["
+		for i, smell := range hardcodedEndpointsSmells {
+			response += fmt.Sprintf("\"%s\"", smell)
+			if i < len(hardcodedEndpointsSmells)-1 {
+				response += ","
+			}
+		}
+		response += "]}}"
+		writer.Write([]byte(response))
+		return
+	}
+}
+
+
+// ESB Usage -> Handling of the route
+func esbUsageHandler(writer http.ResponseWriter, request *http.Request) {
+	log.Println("Received ESB Usage detection request")
+	// Get the url properly
+	graph := request.URL.Query().Get("graph")
+	log.Printf("Detecting ESB Usage smells")
+	
+	
+	esbUsageSmell, err := esbUsage.DetectESBUsage(graph)
+	if err != nil {
+		log.Printf("Error detecting ESB Usage smells: %s\n", err.Error())
+		
+		writer.WriteHeader(http.StatusInternalServerError)
+		writer.Write([]byte("{\"message\": \"Error detecting ESB Usage smells\"}"))
+		return
+	} else {
+		// Return 200 OK
+		
+		writer.WriteHeader(http.StatusOK)
+		response := "{\"message\": \"ESB Usage smells detected successfully\", \"smells\": {\"esbUsage\": " + fmt.Sprintf("%t", esbUsageSmell) + "}}"
+		writer.Write([]byte(response))
+		return
+	}
+}
+
 
 // Cyclic Dependency -> Handling of the route
 func cyclicDependencyHandler(writer http.ResponseWriter, request *http.Request) {

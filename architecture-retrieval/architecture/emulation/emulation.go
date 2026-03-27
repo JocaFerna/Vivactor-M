@@ -47,12 +47,8 @@ func EmulateArchitecture(graph string) error {
 
 	for _, node := range graphStruct.Nodes {
 		// Name sanitization: remove spaces and special characters for folder names
-		node.Label = strings.Map(func(r rune) rune {
-		if (r >= 'a' && r <= 'z') || (r >= 'A' && r <= 'Z') || (r >= '0' && r <= '9') {
-			return r
-		}
-		return -1
-		}, node.Label)
+		node.Label = sanitizeString(node.Label)
+
 		expectedServices[node.Label] = 0
 
 		serviceDir := filepath.Join(basePath, node.Label)
@@ -264,6 +260,7 @@ func EmulateArchitecture(graph string) error {
 
 // Sanitize a string
 func sanitizeString(input string) string {
+	input = strings.ToLower(input)
 	return strings.Map(func(r rune) rune {
 		if (r >= 'a' && r <= 'z') || (r >= 'A' && r <= 'Z') || (r >= '0' && r <= '9') {
 			return r
