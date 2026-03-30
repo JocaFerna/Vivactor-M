@@ -1,4 +1,5 @@
-import React, { useMemo, useEffect, useCallback } from 'react';
+import React, { useMemo, useCallback } from 'react';
+
 import { GraphCanvas, lightTheme } from 'reagraph'; 
 import { useGlobalStore } from '../store/useGlobalStore';
 
@@ -14,22 +15,6 @@ const NODE_ICONS = {
 const Graph = () => {
     const irData = useGlobalStore((state) => state.graphData);
 
-    /*useEffect(() => {
-        if (!irData || !irData.nodes) {
-            const fetchData = async () => {
-                try {
-                    const response = await fetch('/IR_Graph_Example/ir_example.json');
-                    const data = await response.json();
-                    useGlobalStore.setState({ graphData: data });
-                } catch (error) {
-                    console.error("Failed to load IR graph data:", error);
-                }
-            };
-            fetchData();
-        }
-    }, [irData]);*/
-
-    // --- DELETE HANDLERS ---
     const deleteNode = useCallback((nodeId) => {
         const newNodes = irData.nodes.filter(n => n.id !== nodeId);
         const newEdges = irData.edges.filter(e => e.source !== nodeId && e.target !== nodeId);
@@ -37,14 +22,12 @@ const Graph = () => {
     }, [irData]);
 
     const deleteEdge = useCallback((edge) => {
-        console.log(edge)
         const newEdges = irData.edges.filter(e => 
             !(e.source === edge.source && e.target === edge.target && e.endpoint === edge.label)
         );
         useGlobalStore.setState({ graphData: { ...irData, edges: newEdges } });
     }, [irData]);
 
-    // --- DATA FORMATTING ---
     const { nodes, edges } = useMemo(() => {
         if (!irData?.nodes) return { nodes: [], edges: [] };
         const formattedNodes = irData.nodes.map((node) => ({
@@ -57,6 +40,7 @@ const Graph = () => {
             source: edge.source,
             target: edge.target,
             label: edge.endpoint,
+            size: 5, // Increase edge width
         }));
         return { nodes: formattedNodes, edges: formattedEdges };
     }, [irData]);
@@ -64,12 +48,31 @@ const Graph = () => {
     const customTheme = useMemo(() => ({
         ...lightTheme, 
         canvas: { ...lightTheme.canvas, background: '#ffffff' },
-        node: { ...lightTheme.node, label: { ...lightTheme.node.label, color: '#1e293b' } },
-        edge: { ...lightTheme.edge, label: { ...lightTheme.edge.label, color: '#64748b', fontSize: 6 } }
+        node: { 
+            ...lightTheme.node, 
+            label: { 
+                ...lightTheme.node.label, 
+                fontFamily: 'sans-serif', // Force a standard font
+                color: '#1e293b', 
+                fontSize: 10,
+                offset: 18 
+            } 
+        },
+        edge: {
+            // Increase width of edge
+            ...lightTheme.edge,
+            color: '#cbd5e1', // Optional: making it slightly darker makes it easier to see
+            label: { 
+                ...lightTheme.edge.label, 
+                color: '#64748b', 
+                fontSize: 8,
+                background: { fill: '#ffffff', opacity: 0.9 } // Makes edge text readable
+            } 
+        }
     }), []);
 
     return (
-        <div className="relative w-full h-full min-h-[500px] rounded-lg overflow-hidden bg-[#f8fafc]">
+        <div className="relative w-full h-full min-h-[600px] rounded-lg overflow-hidden bg-[#f8fafc]">
             {nodes.length === 0 ? (
                 <div className="flex items-center justify-center h-full text-gray-400 italic">
                     Please load an architecture or add some nodes!
@@ -78,15 +81,31 @@ const Graph = () => {
                 <GraphCanvas
                     nodes={nodes}
                     edges={edges}
+                    draggable={true}
                     theme={customTheme}
                     imageStrategy="node"
                     labelType="all"
                     nodeLabelPosition="bottom" 
                     edgeLabelPosition="above"
+                    edgeInterpolation="curved" // Fixes overlapping edges
+                    
+                    layoutOverrides={{
+                        // Increase this significantly (from -150 to -800+) 
+                        // to force nodes to stay away from the center
+                        nodeStrength: -150, 
+                        
+                        // Increase link distance so the "circle" of nodes is larger
+                        linkDistance: 300, 
+                        
+                        // Helps nodes settle faster and spread out more before stopping
+                        alphaDecay: 0.05, 
+                        
+                        // Decreasing this allows the "repulsion" to win over the "centering" force
+                        centeringStrength: 0.1 
+                    }}
                     contextMenu={({ data, onClose }) => {
                         // Determine if we are clicking a node or an edg
                         const isNode = data.source === undefined
-                        
                         return (
                             <div className="bg-white shadow-xl border border-slate-200 rounded-md py-1 min-w-[160px] text-slate-800">
                                 {/* Header */}
@@ -98,9 +117,8 @@ const Graph = () => {
                                         {data.label || 'Unnamed Link'}
                                     </p>
                                 </div>
-
                                 {/* Actions */}
-                                <button 
+                                <button
                                     className="w-full text-left px-3 py-2 text-xs text-red-600 hover:bg-red-50 flex items-center gap-2 transition-colors"
                                     onClick={() => {
                                         if (isNode) deleteNode(data.id);
@@ -110,8 +128,7 @@ const Graph = () => {
                                 >
                                     <span>🗑️</span> Delete {isNode ? 'Node' : 'Edge'}
                                 </button>
-
-                                <button 
+                                <button
                                     className="w-full text-left px-3 py-2 text-xs text-slate-500 hover:bg-slate-50 border-t border-slate-50 mt-1"
                                     onClick={onClose}
                                 >
@@ -124,6 +141,6 @@ const Graph = () => {
             )}
         </div>
     );
-};
+}; 
 
 export default Graph;

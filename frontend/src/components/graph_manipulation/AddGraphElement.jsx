@@ -47,16 +47,27 @@ const AddGraphElement = () => {
 
     const handleAddNode = (e) => {
         e.preventDefault();
-        const newNode = {
-            id: nodeForm.id || `node-${Date.now()}`,
-            label: nodeForm.label,
-            type: nodeForm.type,
-            properties: { 
-                language: nodeForm.language, 
-                orderOfMagnitudeOfFiles: nodeForm.orderOfMagnitudeOfFiles 
-            }
-        };
+        var newNode = {}
+
+        if (nodeForm.type !== "DatabaseNode") {
+            newNode = {
+                id: nodeForm.id || `node-${Date.now()}`,
+                label: nodeForm.label,
+                type: nodeForm.type,
+                properties: { 
+                    language: nodeForm.language, 
+                    orderOfMagnitudeOfFiles: nodeForm.orderOfMagnitudeOfFiles 
+                }
+            };
+        }
+        else {
+            newNode = {
+                id: nodeForm.id || `node-${Date.now()}`,
+                label: nodeForm.label,
+                type: nodeForm.type,
         
+            }
+        }
         useGlobalStore.setState({
             graphData: { ...graphData, nodes: [...graphData.nodes, newNode] }
         });
@@ -165,6 +176,7 @@ const AddGraphElement = () => {
                             <option value="APIGateway">API Gateway</option>
                         </select>
                     </div>
+                    {nodeForm.type !== "DatabaseNode" && 
                     <div>
                         <label className="block text-xs font-medium text-slate-400 mb-1">Language</label>
                         <select className="w-full p-2 border rounded bg-white" value={nodeForm.language} onChange={e => setNodeForm({...nodeForm, language: e.target.value})}>
@@ -173,8 +185,10 @@ const AddGraphElement = () => {
                             <option value="javascript">JavaScript</option>
                             <option value="html">HTML</option>
                         </select>
-                    </div>
-                    <input className="w-full p-2 border rounded bg-white" placeholder="Magnitude (10^0)" value={nodeForm.orderOfMagnitudeOfFiles} onChange={e => setNodeForm({...nodeForm, orderOfMagnitudeOfFiles: e.target.value})} pattern="10\^[0-9]+" required />
+                    </div>}
+                    {nodeForm.type !== "DatabaseNode" &&
+                        <input className="w-full p-2 border rounded bg-white" placeholder="Magnitude (10^0)" value={nodeForm.orderOfMagnitudeOfFiles} onChange={e => setNodeForm({...nodeForm, orderOfMagnitudeOfFiles: e.target.value})} pattern="10\^[0-9]+" required />
+                    }
                     <button type="submit" className="w-full py-2 text-white bg-blue-600 rounded hover:bg-blue-700 font-medium transition-colors">Add Node</button>
                 </form>
             )}

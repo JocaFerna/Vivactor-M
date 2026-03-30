@@ -11,7 +11,14 @@ const ArchitectureSmellsBox = () => {
     nonAPIVersioned: "N/A",
     cyclicDependency: "N/A",
     esbUsage: "N/A",
-    hardcodedEndpoints: "N/A"
+    hardcodedEndpoints: "N/A",
+    innapropriateServiceIntimacity: "N/A",
+    microserviceGreedy: "N/A",
+    sharedLibraries: "N/A",
+    sharedPersistency: "N/A",
+    wrongCuts: "N/A",
+    tooManyStandards: "N/A",
+    noAPIGateway: "N/A"
   });
 
   // 2. Memoize the fetch function to keep the effect clean
@@ -23,7 +30,7 @@ const ArchitectureSmellsBox = () => {
       if (useGlobalStore.getState().graphData == undefined){
         return
       }
-      const fullUrl = `${API_BASE}/smells/hardcodedEndpoints?${params.toString()}`;
+      const fullUrl = `${API_BASE}/smells/report?${params.toString()}`;
 
       
       const response = await fetch(fullUrl);
@@ -39,7 +46,7 @@ const ArchitectureSmellsBox = () => {
 
 
       // Extract the relevant data -> nonAPIVerisoned
-      const nonAPIVersioned = result.smells?.nonAPIVersionedEndpoints;
+      const nonAPIVersioned = result.smells?.apiNonVersioned;
       
       const countAPIVersioned = (nonAPIVersioned !== undefined) 
         ? (Object.keys(nonAPIVersioned).length > 0 ? Object.keys(nonAPIVersioned).length : "Not Detected")
@@ -52,7 +59,7 @@ const ArchitectureSmellsBox = () => {
 
 
       // Extract the relevant data -> Cyclic Dependency
-      const cyclicDependency = result.smells?.cycles;
+      const cyclicDependency = result.smells?.cyclicDependency;
 
       const countCyclicDependency = (cyclicDependency !== undefined)
         ? (cyclicDependency.length > 0 ? cyclicDependency.length : "Not Detected")
@@ -79,8 +86,60 @@ const ArchitectureSmellsBox = () => {
       setHasError(false);
 
 
-      // Stop polling if we actually got data
-      if (countAPIVersioned !== "N/A" && countCyclicDependency !== "N/A") {
+      // Extract the relevant data -> Innapropriate Service Intimacity
+      const inapropriateServiceIntimacity = result.smells?.innapropriateServiceIntimacity;
+      const countInnapropriateServiceIntimacity = (inapropriateServiceIntimacity !== undefined)
+        ? (inapropriateServiceIntimacity.length > 0 ? inapropriateServiceIntimacity.length : "Not Detected")
+        : "N/A";
+        
+      setSmells(prev => ({ ...prev, innapropriateServiceIntimacity: countInnapropriateServiceIntimacity }));
+      setHasError(false);
+
+      // Extract the relevant data -> Microservice Greedy
+      const microserviceGreedy = result.smells?.microserviceGreedy
+      const countMicroserviceGreedy = (microserviceGreedy !== undefined)
+        ? (microserviceGreedy.length > 0 ? microserviceGreedy.length : "Not Detected")
+        : "N/A";
+        
+      setSmells(prev => ({ ...prev, microserviceGreedy: countMicroserviceGreedy }));
+      setHasError(false);
+
+      // Extract the relevant data -> Shared Libraries
+      const sharedLibraries = result.smells?.sharedLibraries
+      const countSharedLibraries = (sharedLibraries !== undefined)
+        ? (sharedLibraries.length > 0 ? sharedLibraries.length : "Not Detected")
+        : "N/A";
+        
+      setSmells(prev => ({ ...prev, sharedLibraries: countSharedLibraries }));
+      setHasError(false);
+
+      // Extract the relevant data -> Shared Persistency
+      const sharedPersistency = result.smells?.sharedPersistency
+      const countSharedPersistency = (sharedPersistency !== undefined)
+        ? (sharedPersistency.length > 0 ? sharedPersistency.length : "Not Detected")
+        : "N/A";
+        
+      setSmells(prev => ({ ...prev, sharedPersistency: countSharedPersistency }));
+      setHasError(false);
+
+      // Extract the relevant data -> Wrong Cuts
+      const wrongCuts = Boolean(result.smells?.wrongCuts) ? "Detected" : "Not Detected";
+      setSmells(prev => ({ ...prev, wrongCuts: wrongCuts }));
+      setHasError(false);
+
+      // Extract the relevant data -> Too Many Standards
+      const tooManyStandards = result.smells?.tooManyStandards
+      setSmells(prev => ({ ...prev, tooManyStandards: tooManyStandards }));
+      setHasError(false);
+      
+
+      // Extract the relevant data -> No API Gateway
+      const noAPIGateway = Boolean(result.smells?.noAPIGateway) ? "Detected" : "Not Detected or Not Applicable";
+      setSmells(prev => ({ ...prev, noAPIGateway: noAPIGateway }));
+      setHasError(false);
+
+      // Check if any smells were detected to update the global state for refactoring
+      if (result.smells) {
         setIsRunning(false);
         if (countAPIVersioned > 0) {
           useGlobalStore.setState({ refactoringOfNonAPIVersioned: true });
@@ -111,7 +170,19 @@ const ArchitectureSmellsBox = () => {
   }, [isArchitectureRunning, fetchSmells]);
 
   return (
-    <div className={`fixed bottom-6 right-6 w-72 bg-slate-900 border ${hasError ? 'border-red-500' : 'border-slate-700'} rounded-lg shadow-2xl p-4 text-white z-50 transition-colors duration-300`}>
+    <div className={`
+      /* Positioning: Fixed to bottom-right, but centered/full-width on tiny screens */
+      fixed bottom-4 right-4 left-4 
+      sm:left-auto sm:bottom-6 sm:right-6 
+      
+      /* Sizing: Adjusts based on screen width */
+      w-auto sm:w-72 md:w-80 
+      max-h-[85vh] overflow-y-auto 
+      
+      /* Styling */
+      bg-slate-900 border ${hasError ? 'border-red-500' : 'border-slate-700'} 
+      rounded-lg shadow-2xl p-4 text-white z-50 transition-all duration-300
+    `}>      
       <div className="flex items-center justify-between mb-3 border-b border-slate-700 pb-2">
         <h3 className={`text-sm font-bold uppercase tracking-wider ${hasError ? 'text-red-500' : 'text-red-400'}`}>
           Architecture Smells
@@ -127,20 +198,24 @@ const ArchitectureSmellsBox = () => {
       </div>
       
       <div className="space-y-3">
-        {Object.entries(smells).map(([key, value]) => (
-          <div key={key} className="flex justify-between items-center text-xs">
-            <span className="capitalize text-slate-400">
-              {key.replace(/([A-Z])/g, ' $1')}:
-            </span>
-            <span className={`font-mono font-medium ${hasError ? 'text-red-600' : 
-              (value == "Detected" ? 'text-red-400' : 
-              (value == "Non Detected" ? 'text-green-400' :
-              (value > 0 ? 'text-red-400' : 'text-green-400')))}`}>
-              {hasError ? "ERROR" : value}
-            </span>
-          </div>
-        ))}
-      </div>
+      {Object.entries(smells).map(([key, value]) => (
+        // Changed items-center to items-start to better handle multi-line wrapping
+        // Added gap-2 to keep spacing between label and value
+        <div key={key} className="flex justify-between items-start text-xs gap-2">
+          <span className="capitalize text-slate-400 shrink-0">
+            {key.replace(/([A-Z])/g, ' $1').replace("A P I", "API")}:
+          </span>
+          
+          <span className={`font-mono font-medium text-right ${hasError ? 'text-red-600' : 
+            (value == "Detected" ? 'text-red-400' : 
+            (value == "Non Detected" ? 'text-green-400' :
+            (value == "Not Detected or Not Applicable" ? 'text-yellow-400' :
+            (value > 0 ? 'text-red-400' : 'text-green-400'))))}`}>
+            {hasError ? "ERROR" : value}
+          </span>
+        </div>
+      ))}
+    </div>
     </div>
   );
 };

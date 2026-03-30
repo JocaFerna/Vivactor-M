@@ -8,6 +8,14 @@ import (
 	"architecture-retrieval/smells/cyclicDependency"
 	"architecture-retrieval/smells/esbUsage"
 	"architecture-retrieval/smells/hardCodedEndpoints"
+	"architecture-retrieval/smells/inapropriateServiceIntimacity"
+	"architecture-retrieval/smells/microserviceGreedy"
+	"architecture-retrieval/smells/sharedLibraries"
+	"architecture-retrieval/smells/wrongCuts"
+	"architecture-retrieval/smells/sharedPersistency"
+	"architecture-retrieval/smells/tooManyStandards"
+	"architecture-retrieval/smells/noAPIGateway"
+
 	"context"
 	"fmt"
 	"log"
@@ -40,6 +48,10 @@ func Register() {
 		"/smells/cyclicDependency": cyclicDependencyHandler,
 		"/smells/esbUsage": esbUsageHandler,
 		"/smells/hardcodedEndpoints": hardcodedEndpointsHandler,
+		"/smells/innapropriateServiceIntimacity": inapropriateServiceIntimacityHandler,
+		
+		// All Reports of Smells Detection
+		"/smells/report": smellsHandler,
 
 		// Refactor Handling
 		"/refactor/mitigateNonAPIVersionedSmells": nonAPIVersionedHandler,
@@ -57,6 +69,200 @@ func home(writer http.ResponseWriter, request *http.Request) {
 	fmt.Fprintf(writer, "{\"message\": \"Hello World\"}")
 }
 
+// All Smells Report -> Handling of the route
+func smellsHandler(writer http.ResponseWriter, request *http.Request){	log.Println("Received Smells Report request")
+	// Get the url properly
+	graph := request.URL.Query().Get("graph")
+	log.Printf("Generating Smells Report")
+
+	// Call all the smells detection functions and gather their results
+	apiNonVersionedSmells, err := apiNonVersioned.DetectApiNonVersioned(graph)
+	if err != nil {
+		log.Printf("Error detecting API Non-Versioned smells: %s\n", err.Error())
+		writer.WriteHeader(http.StatusInternalServerError)
+		writer.Write([]byte("{\"message\": \"Error detecting API Non-Versioned smells\"}"))
+		return
+	}
+
+	// Cyclic Dependency
+	cyclicDependencySmells, err := cyclicDependency.DetectCyclicDependency(graph)
+	if err != nil {
+		log.Printf("Error detecting Cyclic Dependency smells: %s\n", err.Error())
+		writer.WriteHeader(http.StatusInternalServerError)
+		writer.Write([]byte("{\"message\": \"Error detecting Cyclic Dependency smells\"}"))
+		return
+	}
+
+	// ESB Usage
+	esbUsageSmell, err := esbUsage.DetectESBUsage(graph)
+	if err != nil {
+		log.Printf("Error detecting ESB Usage smells: %s\n", err.Error())
+		writer.WriteHeader(http.StatusInternalServerError)
+		writer.Write([]byte("{\"message\": \"Error detecting ESB Usage smells\"}"))
+		return
+	}
+
+	// Hardcoded Endpoints
+	hardcodedEndpointsSmells, err := hardCodedEndpoints.DetectHardCodedEndpoints(graph)
+	if err != nil {
+		log.Printf("Error detecting Hardcoded Endpoints smells: %s\n", err.Error())
+		writer.WriteHeader(http.StatusInternalServerError)
+		writer.Write([]byte("{\"message\": \"Error detecting Hardcoded Endpoints smells\"}"))
+		return
+	}
+
+	// Inapropriate Service Intimacity
+	innapropriateServiceIntimacitySmells, err := inapropriateServiceIntimacity.GetInnapropriateServiceIntimacity(graph)
+	if err != nil {
+		log.Printf("Error detecting Innapropriate Service Intimacity smells: %s\n", err.Error())
+		writer.WriteHeader(http.StatusInternalServerError)
+		writer.Write([]byte("{\"message\": \"Error detecting Innapropriate Service Intimacity smells\"}"))
+		return
+	}
+
+	// Microservice Greedy
+	microserviceGreedySmells, err := microserviceGreedy.GetMicroserviceGreedy(graph)
+	if err != nil {
+		log.Printf("Error detecting Microservice Greedy smells: %s\n", err.Error())
+		writer.WriteHeader(http.StatusInternalServerError)
+		writer.Write([]byte("{\"message\": \"Error detecting Microservice Greedy smells\"}"))
+		return
+	}
+
+	// Shared Libraries
+	sharedLibrariesSmells, err := sharedLibraries.GetSharedLibraries(graph)
+	if err != nil {
+		log.Printf("Error detecting Shared Libraries smells: %s\n", err.Error())
+		writer.WriteHeader(http.StatusInternalServerError)
+		writer.Write([]byte("{\"message\": \"Error detecting Shared Libraries smells\"}"))
+		return
+	}
+
+	// Wrong Cuts
+	wrongCutsSmells, err := wrongCuts.GetWrongCuts(graph)
+	if err != nil {
+		log.Printf("Error detecting Wrong Cuts smells: %s\n", err.Error())
+		writer.WriteHeader(http.StatusInternalServerError)
+		writer.Write([]byte("{\"message\": \"Error detecting Wrong Cuts smells\"}"))
+		return
+	}
+
+	// Shared Persistency
+	sharedPersistencySmells, err := sharedPersistency.GetSharedPersistency(graph)
+	if err != nil {
+		log.Printf("Error detecting Shared Persistency smells: %s\n", err.Error())
+		writer.WriteHeader(http.StatusInternalServerError)
+		writer.Write([]byte("{\"message\": \"Error detecting Shared Persistency smells\"}"))
+		return
+	}
+	
+	// Too Many Standards
+	tooManyStandardsSmells, err := tooManyStandards.GetTooManyStandards(graph)
+	if err != nil {
+		log.Printf("Error detecting Too Many Standards smells: %s\n", err.Error())
+		writer.WriteHeader(http.StatusInternalServerError)
+		writer.Write([]byte("{\"message\": \"Error detecting Too Many Standards smells\"}"))
+		return
+	}
+
+	// No API Gateway
+	noAPIGatewaySmells, err := noAPIGateway.GetNoAPIGateway(graph)
+	if err != nil {
+		log.Printf("Error detecting No API Gateway smells: %s\n", err.Error())
+		writer.WriteHeader(http.StatusInternalServerError)
+		writer.Write([]byte("{\"message\": \"Error detecting No API Gateway smells\"}"))
+		return
+	}
+
+	// Return 200 OK with all the smells in the response body
+	writer.WriteHeader(http.StatusOK)
+	response := "{\"message\": \"Smells Report generated successfully\", \"smells\": {"
+	response += "\"apiNonVersioned\": ["
+	for i, smell := range apiNonVersionedSmells {
+		response += fmt.Sprintf("\"%s\"", smell)
+		if i < len(apiNonVersionedSmells)-1 {
+			response += ","
+		}
+	}
+	response += "],"
+	response += "\"cyclicDependency\": ["
+	for i, smell := range cyclicDependencySmells {
+		response += "["
+		for j, node := range smell {
+			response += fmt.Sprintf("\"%s\"", node)
+			if j < len(smell)-1 {
+				response += ","
+			}
+		}
+		response += "]"
+		if i < len(cyclicDependencySmells)-1 {
+			response += ","
+		}
+	}
+	response += "],"
+	response += "\"esbUsage\": " + fmt.Sprintf("%t", esbUsageSmell) + ","
+	response += "\"hardcodedEndpoints\": ["
+	for i, smell := range hardcodedEndpointsSmells {
+		response += fmt.Sprintf("\"%s\"", smell)
+		if i < len(hardcodedEndpointsSmells)-1 {
+			response += ","
+		}
+	}
+	response += "],"
+	response += "\"innapropriateServiceIntimacity\": ["
+	for i, smell := range innapropriateServiceIntimacitySmells {
+		response += fmt.Sprintf("\"%s\"", smell)
+		if i < len(innapropriateServiceIntimacitySmells)-1 {
+			response += ","
+		}
+	}
+	response += "],"
+	response += "\"microserviceGreedy\": ["
+	for i, smell := range microserviceGreedySmells {
+		response += fmt.Sprintf("\"%s\"", smell)
+		if i < len(microserviceGreedySmells)-1 {
+			response += ","
+		}
+	}
+	response += "],"
+	response += "\"sharedLibraries\": ["
+	for i, smell := range sharedLibrariesSmells {
+		response += fmt.Sprintf("\"%s\"", smell)
+		if i < len(sharedLibrariesSmells)-1 {
+			response += ","
+		}
+	}
+	response += "],"
+	response += "\"wrongCuts\": "
+	response += fmt.Sprintf("%t", wrongCutsSmells)
+	
+	response += ","
+	response += "\"sharedPersistency\": ["
+	for i, smell := range sharedPersistencySmells {
+		response += "["
+		for j, service := range smell {
+			response += fmt.Sprintf("\"%s\"", service)
+			if j < len(smell)-1 {
+				response += ","
+			}
+		}
+		response += "]"
+		if i < len(sharedPersistencySmells)-1 {
+			response += ","
+		}
+	}
+	response += "],"
+	response += "\"tooManyStandards\": "
+	response += fmt.Sprintf("%v", tooManyStandardsSmells)
+	response += ","
+	response += "\"noAPIGateway\": "
+	response += fmt.Sprintf("%t", noAPIGatewaySmells)
+
+	response += "}}"
+	writer.Write([]byte(response))
+	return
+	
+}
 // Hardcoded Endpoints -> Handling of the route
 func hardcodedEndpointsHandler(writer http.ResponseWriter, request *http.Request) {
 	log.Println("Received Hardcoded Endpoints detection request")
@@ -81,6 +287,39 @@ func hardcodedEndpointsHandler(writer http.ResponseWriter, request *http.Request
 		for i, smell := range hardcodedEndpointsSmells {
 			response += fmt.Sprintf("\"%s\"", smell)
 			if i < len(hardcodedEndpointsSmells)-1 {
+				response += ","
+			}
+		}
+		response += "]}}"
+		writer.Write([]byte(response))
+		return
+	}
+}
+
+// Innapropriate Service Intimacity -> Handling of the route
+func inapropriateServiceIntimacityHandler(writer http.ResponseWriter, request *http.Request) {
+	log.Println("Received Innapropriate Service Intimacity detection request")
+	// Get the url properly
+	graph := request.URL.Query().Get("graph")
+	log.Printf("Detecting Innapropriate Service Intimacity smells")
+	
+	
+	innapropriateServiceIntimacitySmells, err := inapropriateServiceIntimacity.GetInnapropriateServiceIntimacity(graph)
+	if err != nil {
+		log.Printf("Error detecting Innapropriate Service Intimacity smells: %s\n", err.Error())
+		
+		writer.WriteHeader(http.StatusInternalServerError)
+		writer.Write([]byte("{\"message\": \"Error detecting Innapropriate Service Intimacity smells\"}"))
+		return
+	} else {
+		// Return 200 OK
+		
+		writer.WriteHeader(http.StatusOK)
+		// Add innapropriateServiceIntimacitySmells to the response body
+		response := "{\"message\": \"Innapropriate Service Intimacity smells detected successfully\", \"smells\": {\"innapropriateServiceIntimacity\": ["
+		for i, smell := range innapropriateServiceIntimacitySmells {
+			response += fmt.Sprintf("\"%s\"", smell)
+			if i < len(innapropriateServiceIntimacitySmells)-1 {
 				response += ","
 			}
 		}
@@ -156,6 +395,8 @@ func cyclicDependencyHandler(writer http.ResponseWriter, request *http.Request) 
 		return
 	}
 }
+
+// 
 
 
 // Emulate the architecture -> Handling of the route

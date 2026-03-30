@@ -13,11 +13,17 @@ func DetectApiNonVersioned(graph string) ([]string, error) {
 		return nil, fmt.Errorf("error parsing json: %w", err)
 	}
 
+	// To avoid duplicates.
+	nonVersioned := make(map[string]struct{})
+
 	var nonVersionedApis []string
 	for _, edge := range graphStruct.Edges {
 		if isApiNonVersioned(edge.Properties.CallDefinitionInSource) {
-			nonVersionedApis = append(nonVersionedApis, edge.Properties.CallDefinitionInSource)
+			nonVersioned[edge.Properties.CallDefinitionInSource] = struct{}{}
 		}
+	}
+	for api := range nonVersioned {
+		nonVersionedApis = append(nonVersionedApis, api)
 	}
 	return nonVersionedApis, nil
 }

@@ -98,3 +98,13 @@ func RemoveNodeAsAdjacent(adjList map[*Node][]*Node, nodeSource *Node, nodeToRem
 	}
 	return adjList
 }
+
+func GetOrderOfMagnitudeOfFiles(node Node) int {
+	// Retrieve the exponent from the string
+	var exponent int
+	_, err := fmt.Sscanf(node.Properties.OrderOfMagnitudeOfFiles, "10^%d", &exponent)
+	if err != nil {
+		return 0 // Default to 0 if parsing fails
+	}
+	return exponent
+}
