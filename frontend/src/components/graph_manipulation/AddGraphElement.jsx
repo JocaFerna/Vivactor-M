@@ -19,7 +19,8 @@ const AddGraphElement = () => {
         source: '', 
         target: '', 
         endpoint: '', 
-        callDefinitionInSource: '' 
+        callDefinitionInSource: '',
+        method: 'GET'
     });
 
     // System Form State
@@ -80,13 +81,13 @@ const AddGraphElement = () => {
             source: edgeForm.source,
             target: edgeForm.target,
             endpoint: edgeForm.endpoint,
-            properties: { callDefinitionInSource: edgeForm.callDefinitionInSource }
+            properties: { callDefinitionInSource: edgeForm.callDefinitionInSource, method: edgeForm.method }
         };
 
         useGlobalStore.setState({
             graphData: { ...graphData, edges: [...graphData.edges, newEdge] }
         });
-        setEdgeForm({ source: '', target: '', endpoint: '', callDefinitionInSource: '' });
+        setEdgeForm({ source: '', target: '', endpoint: '', callDefinitionInSource: '', method: 'GET' });
     };
 
     const handleEditSystem = (e) => {
@@ -206,6 +207,13 @@ const AddGraphElement = () => {
                     </select>
                     <input className="w-full p-2 border rounded bg-white" placeholder="Endpoint (/api/v1)" value={edgeForm.endpoint} onChange={e => setEdgeForm({...edgeForm, endpoint: e.target.value})} required />
                     <input className="w-full p-2 border rounded bg-white" placeholder="URL of Call" value={edgeForm.callDefinitionInSource} onChange={e => setEdgeForm({...edgeForm, callDefinitionInSource: e.target.value})} required />
+                    <select className="w-full p-2 border rounded bg-white" value={edgeForm.method} onChange={e => setEdgeForm({...edgeForm, method: e.target.value})}>
+                        <option value="GET">GET</option>
+                        <option value="POST">POST</option>
+                        <option value="PUT">PUT</option>
+                        <option value="DELETE">DELETE</option>
+                        <option value="PATCH">PATCH</option>
+                    </select>
                     <button type="submit" className="w-full py-2 text-white bg-green-600 rounded hover:bg-green-700 font-medium transition-colors">Connect Services</button>
                 </form>
             )}

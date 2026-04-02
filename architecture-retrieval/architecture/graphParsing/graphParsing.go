@@ -31,6 +31,7 @@ type Edge struct{
 
 type EdgeProperties struct {
     CallDefinitionInSource string `json:"callDefinitionInSource"`
+	Method string `json:"method"`
 }
 
 type SystemContext struct {
@@ -55,6 +56,14 @@ func ParseGraph (graph string) (Graph, error) {
 	} else{
 		return result, nil
 	}
+}
+
+func SerializeGraph(graph Graph) (string, error) {
+	jsonBytes, err := json.Marshal(graph)
+	if err != nil {
+		return "", fmt.Errorf("Error serializing graph: %s", err)
+	}
+	return string(jsonBytes), nil
 }
 
 func GetNodeById(graph Graph, id string) (Node, error) {

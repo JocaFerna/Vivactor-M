@@ -47,6 +47,7 @@ services:
       - ./repositories/downloads:/api/downloads
       - /var/run/docker.sock:/var/run/docker.sock
     environment:
+      - TZ=Europe/Lisbon
       - DOCKER_API_VERSION=1.41
       
     env_file:

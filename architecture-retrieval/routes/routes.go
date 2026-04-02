@@ -44,7 +44,7 @@ func Register() {
 		"/emulateArchitecture" : emulateHandler,
 
 		// Smells Detection
-		"/smells/apiNonVersioned": apiNonVersionedHandler,
+		"/smells/apiNonVersioned": apiNonVersionedSmellHandler,
 		"/smells/cyclicDependency": cyclicDependencyHandler,
 		"/smells/esbUsage": esbUsageHandler,
 		"/smells/hardcodedEndpoints": hardcodedEndpointsHandler,
@@ -396,9 +396,6 @@ func cyclicDependencyHandler(writer http.ResponseWriter, request *http.Request) 
 	}
 }
 
-// 
-
-
 // Emulate the architecture -> Handling of the route
 func emulateHandler(writer http.ResponseWriter, request *http.Request) {
 	log.Println("Received Architecture Handling")
@@ -420,7 +417,7 @@ func emulateHandler(writer http.ResponseWriter, request *http.Request) {
 		return
 	}
 }
-func apiNonVersionedHandler(writer http.ResponseWriter, request *http.Request) {
+func apiNonVersionedSmellHandler(writer http.ResponseWriter, request *http.Request) {
 	log.Println("Received API Non-Versioned detection request")
 	// Get the url properly
 	graph := request.URL.Query().Get("graph")
@@ -453,27 +450,27 @@ func apiNonVersionedHandler(writer http.ResponseWriter, request *http.Request) {
 }
 func nonAPIVersionedHandler(writer http.ResponseWriter, request *http.Request) {
 	log.Println("Received mitigate non-API versioned smells request")
-	// Get the url properly
-	url := request.URL.Query().Get("url")
-	last_appearance_of_separator := strings.LastIndex(url,"/")
-	repo_name := request.URL.Query().Get("url")[last_appearance_of_separator:]
-	log.Printf("Mitigating non-API versioned smells for repository: %s\n", repo_name)
+	
+	graph := request.URL.Query().Get("graph")
+	apis := request.URL.Query().Get("apis")
+	// Remove [ and ] from the apis string
+	apis = strings.TrimPrefix(apis, "[")
+	apis = strings.TrimSuffix(apis, "]")
+	nonAPIVersionedSmells := strings.Split(apis, ",")
+	fmt.Printf("Non-API Versioned Smells: %v\n", nonAPIVersionedSmells)
 
-	// Get the JSON data from the request body
-	jsonData := request.URL.Query().Get("data")
-	nonAPIVersionedSmells := strings.Split(jsonData, ",")
 
-
-	err := nonAPIVersioned.MitigateNonAPIVersionedSmells(repo_name, nonAPIVersionedSmells)
+	graphRefactored, err := nonAPIVersioned.MitigateNonAPIVersionedSmellsGraph(graph, nonAPIVersionedSmells)
+	fmt.Printf("Refactored Graph: %s\n", graphRefactored)
 	if err != nil {
-		log.Printf("Error mitigating shared library smells: %s\n", err.Error())
+		fmt.Printf("Error mitigating non-API versioned smells: %s\n", err.Error())
 		writer.WriteHeader(http.StatusInternalServerError)
-		writer.Write([]byte("{\"message\": \"Error mitigating shared library smells\"}"))
+		writer.Write([]byte("{\"message\": \"Error mitigating non-API versioned smells\"}"))
 		return
 	} else {
 		// Return 200 OK
 		writer.WriteHeader(http.StatusOK)
-		writer.Write([]byte("{\"message\": \"Mitigating shared library smells...\"}"))
+		writer.Write([]byte("{\"message\": \"Mitigating shared library smells...\", \"graph\": " + graphRefactored + "}"))
 		return
 	}
 }

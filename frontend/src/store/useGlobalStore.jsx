@@ -7,8 +7,32 @@ export const useGlobalStore = create((set) => ({
     graphJSONRaw : null,
     isFetching: false,
     isArchitectureRunning: false,
+
+    // Refactoring flags
     refactoringOfNonAPIVersioned: false,
+    refactoringOfCyclicDependency: false,
+    refactoringOfEsbUsage: false,
+    refactoringOfHardcodedEndpoints: false,
+    refactoringOfInnapropriateServiceIntimacity: false,
+    refactoringOfMicroserviceGreedy: false,
+    refactoringOfSharedLibraries: false,
+    refactoringOfSharedPersistency: false,
+    refactoringOfWrongCuts: false,
+    refactoringOfTooManyStandards: false,
+    refactoringOfNoAPIGateway: false,
+
+    // Refactoring data.
     refactoringOfNonAPIVersionedJSON: null,
+    refactoringOfCyclicDependencyJSON: null,
+    refactoringOfEsbUsageJSON: null,
+    refactoringOfHardcodedEndpointsJSON: null,
+    refactoringOfInnapropriateServiceIntimacityJSON: null,
+    refactoringOfMicroserviceGreedyJSON: null,
+    refactoringOfSharedLibrariesJSON: null,
+    refactoringOfSharedPersistencyJSON: null,
+    refactoringOfWrongCutsJSON: null,
+    refactoringOfTooManyStandardsJSON: null,
+    refactoringOfNoAPIGatewayJSON: null,
 
     // This is the function you can call from ANY file
     fetchGraphData: async () => {

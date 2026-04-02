@@ -10,5 +10,7 @@ RUN pip install --no-cache-dir flask requests
 
 COPY . .
 
+ENV PYTHONUNBUFFERED=1
+
 # Ensure we use the main.py (or whatever name your Go code generates)
 CMD ["python", "main.py"]

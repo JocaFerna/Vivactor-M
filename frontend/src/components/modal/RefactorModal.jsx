@@ -4,48 +4,54 @@ import { useGlobalStore } from '../../store/useGlobalStore';
 import { motion } from "motion/react";
 
 /**
- * Logic to handle the API call.
+ * Logic to handle the API call. 
+ * Note: This is a standard function, not a hook, so useGlobalStore.getState() is safe here.
  */
 const refactorSoftware = async (repoUrl, refactorType, selectedApis) => {
     try {
-        const API_BASE = import.meta.env.VITE_ARCHITECTURAL_URL;
+        const API_BASE = import.meta.env.VITE_ARCHITECTURAL_URL || "http://localhost:8080";
+        const currentState = useGlobalStore.getState();
+        const params = new URLSearchParams({ graph: JSON.stringify(currentState.graphData) });
 
-        if (refactorType === "nonAPIVersioned") {
-            console.log("Initiating refactor for non-API versioned smells...");
+        switch(refactorType) {
+            case "nonAPIVersioned":
+                console.log("Initiating refactor for non-API versioned smells...");
+                const apisToRefactor = Object.keys(selectedApis).filter(api => selectedApis[api]);
+                params.append('apis', JSON.stringify(apisToRefactor));
 
-            // Filter local state to get only the names of checked APIs
-            const apisToRefactor = Object.keys(selectedApis).filter(api => selectedApis[api]);
+                const fullUrl = `${API_BASE}/refactor/mitigateNonAPIVersionedSmells?${params.toString()}`;
+                const response = await fetch(fullUrl);
+                
+                if (!response.ok) throw new Error(`Server error: ${response.status}`);
+                
+                const result = await response.json();
+                console.log("Repository refactored successfully:", result);
+
+                useGlobalStore.setState({ 
+                    refactoringOfNonAPIVersioned: false, 
+                    refactoringOfNonAPIVersionedJSON: null, 
+                    isArchitectureRunning: true,           
+                    graphData: result.graph ? result.graph : currentState.graphData 
+                });
+                break;
             
-            // Get architecture URL from global store
-            const architectureURL = useGlobalStore.getState().architectureURL;
-
-            // 1. Build the URL
-            const params = new URLSearchParams({ 
-                url: architectureURL, 
-                data: JSON.stringify(apisToRefactor) 
-            });
-            const fullUrl = `${API_BASE}/refactor/mitigateNonAPIVersionedSmells?${params.toString()}`;
-
-            // 2. Make the call
-            const response = await fetch(fullUrl);
-            
-            if (!response.ok) throw new Error(`Server error: ${response.status}`);
-            
-            const result = await response.json();
-            console.log("Repository refactored successfully:", result);
-
-            // 3. Update Global Store flags
-            useGlobalStore.setState({ 
-                refactoringOfNonAPIVersioned: false, // Reset flag
-                isArchitectureRunning: true           // Set running state
-            });
-
-            // 4. Refresh the graph data
-            const fetchGraph = useGlobalStore.getState().fetchGraphData;
-            if (fetchGraph) {
-                await fetchGraph();
-            }
+            // Placeholder cases for future implementation
+            case "cyclicDependency":
+            case "esbUsage":
+            case "hardcodedEndpoints":
+            case "innapropriateServiceIntimacity":
+            case "microserviceGreedy":
+            case "sharedLibraries":
+            case "sharedPersistency":
+            case "wrongCuts":
+            case "tooManyStandards":
+            case "noAPIGateway":
+                console.log(`Refactor for ${refactorType} is not implemented yet.`);
+                break;
+            default:
+                console.warn("Unknown refactor type:", refactorType);
         }
+        
     } catch (error) {
         console.error("Refactor failed:", error);
         throw error;
@@ -53,52 +59,70 @@ const refactorSoftware = async (repoUrl, refactorType, selectedApis) => {
 };
 
 const RefactorModal = ({ isOpen, onClose, typeOfRefactor }) => {
+    // --- 1. HOOKS (Must always be at the top level) ---
     const [status, setStatus] = useState('idle'); // idle | loading | success | failed
-    const [selectedApis, setSelectedApis] = useState({});
+    const [selectedRefactors, setSelectedRefactors] = useState({});
 
-    // 1. Selector: Get raw data. Fallback to empty array if null.
-    const apiData = useGlobalStore((state) => state.refactoringOfNonAPIVersionedJSON);
-    
-    // Determine if data is an array or object keys
-    const apiList = Array.isArray(apiData) 
-        ? apiData 
-        : (apiData ? Object.keys(apiData) : []);
+    // Dynamic state selection using a single stable hook call
+    const data = useGlobalStore((state) => {
+        const keyMap = {
+            nonAPIVersioned: 'refactoringOfNonAPIVersionedJSON',
+            cyclicDependency: 'refactoringOfCyclicDependencyJSON',
+            esbUsage: 'refactoringOfEsbUsageJSON',
+            hardcodedEndpoints: 'refactoringOfHardcodedEndpointsJSON',
+            innapropriateServiceIntimacity: 'refactoringOfInnapropriateServiceIntimacityJSON',
+            microserviceGreedy: 'refactoringOfMicroserviceGreedyJSON',
+            sharedLibraries: 'refactoringOfSharedLibrariesJSON',
+            sharedPersistency: 'refactoringOfSharedPersistencyJSON',
+            wrongCuts: 'refactoringOfWrongCutsJSON',
+            tooManyStandards: 'refactoringOfTooManyStandardsJSON',
+            noAPIGateway: 'refactoringOfNoAPIGatewayJSON'
+        };
+        return state[keyMap[typeOfRefactor]];
+    });
 
-    // 2. Initialization Effect: Runs only when modal OPENS
-    // This breaks the "Maximum update depth exceeded" loop
+    // --- 2. DERIVED STATE (Logic, not hooks) ---
+    const list = Array.isArray(data) 
+        ? data 
+        : (data ? Object.keys(data) : []);
+
+    const selectedCount = Object.values(selectedRefactors).filter(Boolean).length;
+
+    // --- 3. EFFECTS ---
     useEffect(() => {
-        if (isOpen && apiList.length > 0) {
+        if (isOpen) {
             const initialState = {};
-            apiList.forEach(apiName => {
-                initialState[apiName] = false;
+            list.forEach(item => {
+                initialState[item] = false;
             });
-            setSelectedApis(initialState);
+            setSelectedRefactors(initialState);
+            setStatus('idle');
         }
-    }, [isOpen]); // apiList is intentionally excluded to prevent re-initialization loops
+    }, [isOpen, typeOfRefactor]); // list excluded to avoid infinite loops, typeOfRefactor included to reset on type change
 
+    // --- 4. EARLY RETURN (Must be AFTER all hooks) ---
     if (!isOpen) return null;
 
-    const handleToggle = (apiName) => {
-        setSelectedApis((prev) => ({
+    // --- 5. HANDLERS ---
+    const handleToggle = (name) => {
+        setSelectedRefactors((prev) => ({
             ...prev,
-            [apiName]: !prev[apiName],
+            [name]: !prev[name],
         }));
     };
 
     const handleSubmit = async (e) => {
         e.preventDefault();
         
-        const hasSelection = Object.values(selectedApis).some(val => val === true);
-        if (typeOfRefactor === "nonAPIVersioned" && !hasSelection) {
-            alert("Please select at least one API to refactor.");
+        const hasSelection = Object.values(selectedRefactors).some(val => val === true);
+        if (list.length > 0 && !hasSelection) {
+            alert("Please select at least one object to refactor.");
             return;
         }
 
         setStatus('loading');
-
         try {
-            // We use '' for url as repoUrl is pulled from store inside the helper
-            await refactorSoftware('', typeOfRefactor, selectedApis);
+            await refactorSoftware('', typeOfRefactor, selectedRefactors);
             setStatus('success');
         } catch (err) {
             setStatus('failed');
@@ -107,11 +131,27 @@ const RefactorModal = ({ isOpen, onClose, typeOfRefactor }) => {
 
     const handleClose = () => {
         setStatus('idle');
-        setSelectedApis({});
+        setSelectedRefactors({});
         onClose();
     };
 
-    const selectedCount = Object.values(selectedApis).filter(Boolean).length;
+    // Helper to render dynamic titles
+    const getTitle = () => {
+        const titles = {
+            nonAPIVersioned: "Select APIs to Refactor",
+            cyclicDependency: "Select Cycles to Refactor",
+            esbUsage: "Refactor ESB Services",
+            hardcodedEndpoints: "Select Hardcoded Endpoints to Refactor",
+            innapropriateServiceIntimacity: "Select Services with Inappropriate Intimacy",
+            microserviceGreedy: "Select Greedy Microservices to Refactor",
+            sharedLibraries: "Select Shared Libraries to Refactor",
+            sharedPersistency: "Select Shared Persistency to Refactor",
+            wrongCuts: "Refactor Wrong Service Cuts",
+            tooManyStandards: "Refactor Too Many Standards",
+            noAPIGateway: "Refactor No API Gateway"
+        };
+        return titles[typeOfRefactor] || "Refactor Architecture";
+    };
 
     return (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
@@ -158,47 +198,47 @@ const RefactorModal = ({ isOpen, onClose, typeOfRefactor }) => {
                         <h2 className="text-xl font-bold text-slate-800 mb-4">Refactor Architecture</h2>
                         <form onSubmit={handleSubmit} className="space-y-4">
                             
-                            {typeOfRefactor === "nonAPIVersioned" && (
-                                <div className="flex flex-col gap-2 p-4 border rounded-lg bg-slate-50">
-                                    <h4 className="text-sm font-bold text-slate-700 border-b border-slate-200 pb-2 mb-2">
-                                        Select APIs to Refactor
-                                    </h4>
-                                    
-                                    <div className="max-h-60 overflow-y-auto space-y-1 pr-2 custom-scrollbar">
-                                        {apiList.length > 0 ? (
-                                            apiList.map((apiName) => (
-                                                <label 
-                                                    key={apiName} 
-                                                    className="flex items-center gap-3 p-2 hover:bg-white hover:shadow-sm rounded-md cursor-pointer transition-all border border-transparent hover:border-slate-200"
-                                                >
-                                                    <input
-                                                        type="checkbox"
-                                                        className="w-4 h-4 accent-blue-600 cursor-pointer"
-                                                        checked={!!selectedApis[apiName]}
-                                                        onChange={() => handleToggle(apiName)}
-                                                    />
-                                                    <span className="text-sm text-slate-700 truncate">
-                                                        {apiName}
-                                                    </span>
-                                                </label>
-                                            ))
-                                        ) : (
-                                            <p className="text-xs text-slate-500 italic">No APIs detected.</p>
-                                        )}
-                                    </div>
-                                    
+                            <div className="flex flex-col gap-2 p-4 border rounded-lg bg-slate-50">
+                                <h4 className="text-sm font-bold text-slate-700 border-b border-slate-200 pb-2 mb-2">
+                                    {getTitle()}
+                                </h4>
+
+                                <div className="max-h-60 overflow-y-auto space-y-1 pr-2 custom-scrollbar">
+                                    {list.length > 0 ? (
+                                        list.map((name) => (
+                                            <label 
+                                                key={name} 
+                                                className="flex items-center gap-3 p-2 hover:bg-white hover:shadow-sm rounded-md cursor-pointer transition-all border border-transparent hover:border-slate-200"
+                                            >
+                                                <input
+                                                    type="checkbox"
+                                                    className="w-4 h-4 accent-blue-600 cursor-pointer"
+                                                    checked={!!selectedRefactors[name]}
+                                                    onChange={() => handleToggle(name)}
+                                                />
+                                                <span className="text-sm text-slate-700 truncate">
+                                                    {name}
+                                                </span>
+                                            </label>
+                                        ))
+                                    ) : (
+                                        <p className="text-xs text-slate-500 italic">No objects detected for this smell.</p>
+                                    )}
+                                </div>
+                                
+                                {list.length > 0 && (
                                     <div className="mt-2 pt-2 border-t border-slate-200 text-xs font-medium text-slate-500 flex justify-between">
-                                        <span>Total available: {apiList.length}</span>
+                                        <span>Total available: {list.length}</span>
                                         <span className={selectedCount > 0 ? "text-blue-600" : ""}>
                                             {selectedCount} selected
                                         </span>
                                     </div>
-                                </div>
-                            )}
+                                )}
+                            </div>
 
                             <button
                                 type="submit"
-                                disabled={status === 'loading' || (typeOfRefactor === "nonAPIVersioned" && selectedCount === 0)}
+                                disabled={status === 'loading' || (list.length > 0 && selectedCount === 0)}
                                 className="w-full bg-blue-600 text-white py-2.5 rounded-md flex items-center justify-center gap-2 hover:bg-blue-700 disabled:bg-slate-300 disabled:cursor-not-allowed transition-colors font-medium"
                             >
                                 {status === 'loading' && <Loader2 size={18} className="animate-spin" />}

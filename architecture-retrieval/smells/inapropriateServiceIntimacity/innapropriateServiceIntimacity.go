@@ -22,6 +22,70 @@ func GetInnapropriateServiceIntimacity(graph string) ([]string, error){
 	}
 
 	var innapropriateServiceIntimacity []string
+
+	// NOTE: This approach is based on the idea that, if a service is calling a database with a WRITE method
+	// then it is an innapropriate service intimacy.
+
+	/*for _, node := range graphStruct.Nodes {
+		// If a node is a db, we must check how many writes it has.
+		if node.Type == "DatabaseNode" {
+			var writeEdges []graphparsing.Edge
+			for _, edge := range graphStruct.Edges {
+				if edge.Target == node.Id && edge.Properties.Method == "POST" || edge.Properties.Method == "PUT" || edge.Properties.Method == "PATCH" {
+					writeEdges = append(writeEdges, edge)
+				}
+			}
+			// Given all write edges, check the node that perform the most writes.
+			writeCount := make(map[string]int)
+			for _, edge := range writeEdges {
+				writeCount[edge.Source]++
+			}
+			// Sort the writeCount map by value and get the node with the most writes.
+			type kv struct {
+				Key string
+				Value int
+			}
+			var ss []kv
+			for k, v := range writeCount {
+				ss = append(ss, kv{k, v})
+			}
+
+			sort.Slice(ss, func(i, j int) bool {
+				return ss[i].Value > ss[j].Value
+			})
+
+			owner := ss[0].Key
+
+			if(len(ss) > 1 && ss[0].Value == ss[1].Value) {
+				// If there are more than one node with the same number of writes, then we cannot be sure who is the owner, so we skip this db.
+				continue
+			}
+
+			// If there is a node that:
+			// - Performs a WRITE operation on the db.
+			// (We are unconsidering read call) 
+			
+			// Then, any other node that performs a WRITE operation on the same db is an innapropriate service intimacy.
+			for _, edge := range writeEdges {
+				if edge.Source != owner {
+					sourceNode, err := graphparsing.GetNodeById(graphStruct, edge.Source)
+					targetNode, err := graphparsing.GetNodeById(graphStruct, edge.Target)
+					if err != nil {
+						return nil, fmt.Errorf("Error getting nodes: %s", err)
+					}
+					innapropriateServiceIntimacity = append(innapropriateServiceIntimacity, fmt.Sprintf("Service %s is calling database %s owned by service %s", sourceNode.Label, targetNode.Label, owner))
+				}
+			}
+			
+		}
+	}*/
+
+
+
+	//NOTE: This a approach that focus on see if there are databases contains other
+	//services name, and then see if other services are calling that database. This is a very naive approach, but it can work for some cases.
+	// We are still uncertain which one to use.
+	
 	for _, edge := range graphStruct.Edges {
 		// Get source and target nodes
 		sourceNode, err := graphparsing.GetNodeById(graphStruct, edge.Source)
