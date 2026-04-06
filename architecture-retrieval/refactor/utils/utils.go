@@ -6,11 +6,15 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"log"
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"time"
+
+	"gopkg.in/yaml.v3"
 )
 
 func GetFilesInDirectory(dirPath string) ([]string, error) {
@@ -104,6 +108,16 @@ func SanitizeName(name string) string {
 		return -1
 	}, name)
 }
+
+func SanitizeURL(name string) string {
+	return strings.Map(func(r rune) rune {
+		if (r >= 'a' && r <= 'z') || (r >= 'A' && r <= 'Z') || (r >= '0' && r <= '9') || r == '/' || r == ':' || r == '?' || r == '&' || r == '=' {
+			return r
+		}
+		return -1
+	}, name)
+}
+
 // Structure matching docker compose ps --format json output
 type ComposeContainer struct {
     Service   string `json:"Service"`
@@ -132,11 +146,247 @@ func (e *ServiceUnhealthyError) Error() string {
 	return fmt.Sprintf("service %s unhealthy (health: %s)", e.Service, e.Health)
 }
 
-// checkComposeHealth runs `docker compose ps --format json`,
+func RestartDockerCompose(repoPath string) error {
+
+	if err := CleanProjectLock(repoPath); err != nil {
+        log.Printf("Lock cleanup warning: %v", err)
+    }
+
+	downCmd := exec.Command("docker", "compose", "down", "--remove-orphans")
+	downCmd.Dir = repoPath
+	//downCmd.Stdout = os.Stdout
+	downCmd.Stderr = os.Stderr
+	if err := downCmd.Run(); err != nil {
+		return fmt.Errorf("failed to down compose: %w", err)
+	}
+
+	// Clean recreate of traefik_internal
+	exec.Command("docker", "network", "rm", "traefik_internal").Run()
+	if out, err := exec.Command("docker", "network", "create", "traefik_internal").CombinedOutput(); err != nil {
+		log.Printf("traefik_internal create: %s", string(out))
+	}
+
+	buildCmd := exec.Command("docker", "compose", "build")
+	buildCmd.Dir = repoPath
+	//buildCmd.Stdout = os.Stdout
+	buildCmd.Stderr = os.Stderr
+	if err := buildCmd.Run(); err != nil {
+		return fmt.Errorf("failed to build docker compose: %w", err)
+	}
+
+	upCmd := exec.Command("docker", "compose", "watch")
+	upCmd.Dir = repoPath
+	//upCmd.Stdout = os.Stdout
+	upCmd.Stderr = os.Stderr
+	if err := upCmd.Start(); err != nil {
+		return fmt.Errorf("failed to start docker compose watch: %w", err)
+	}
+
+	// Wait for traefik container to actually exist before connecting networks.
+	// compose watch is non-blocking so containers may not be created yet.
+	log.Printf("Waiting for traefik container to be created...")
+	var traefikContainerName string
+	for i := 0; i < 30; i++ {
+		name, err := getTraefikContainerName(repoPath)
+		if err == nil && name != "" {
+			traefikContainerName = name
+			log.Printf("Traefik container found: %s", traefikContainerName)
+			break
+		}
+		if i == 29 {
+			return fmt.Errorf("timed out waiting for traefik container to be created")
+		}
+		log.Printf("Traefik container not ready yet (attempt %d/30): %v", i+1, err)
+		time.Sleep(2 * time.Second)
+	}
+
+	// Only connect to shared_network if traefik is present in the compose file
+	aliases, err := getTraefikSharedNetworkAliases(repoPath)
+	if err != nil {
+		log.Printf("Warning: could not read traefik aliases: %v", err)
+		aliases = []string{}
+	}
+
+	if len(aliases) > 0 {
+		connectArgs := []string{"network", "connect"}
+		for _, alias := range aliases {
+			connectArgs = append(connectArgs, "--alias", alias)
+		}
+		connectArgs = append(connectArgs, "shared_network", traefikContainerName)
+
+		if out, err := exec.Command("docker", connectArgs...).CombinedOutput(); err != nil {
+			return fmt.Errorf("failed to connect traefik to shared_network: %w\n%s", err, string(out))
+		}
+		log.Printf("Connected traefik to shared_network with aliases: %v", aliases)
+	}
+
+	// Read compose file to determine which services to health-check
+	composeFilePath := filepath.Join(repoPath, "docker-compose.yml")
+	composeContent, err := ReadFileContent(composeFilePath)
+	if err != nil {
+		return fmt.Errorf("failed to read compose file: %w", err)
+	}
+
+	var yamlContent map[string]interface{}
+	if err := yaml.Unmarshal([]byte(composeContent), &yamlContent); err != nil {
+		return fmt.Errorf("failed to parse compose YAML: %w", err)
+	}
+
+	services, ok := yamlContent["services"].(map[string]interface{})
+	if !ok {
+		return fmt.Errorf("invalid compose file format: missing services")
+	}
+
+	expectedServices := make(map[string]int)
+	for serviceName := range services {
+		expectedServices[serviceName] = 1
+	}
+
+	if err := LoopUntilHealthy(repoPath, expectedServices, time.Now()); err != nil {
+		return fmt.Errorf("failed to wait for healthy state: %w", err)
+	}
+
+	return nil
+}
+
+
+func CleanProjectLock(repoPath string) error {
+    // Do "docker compose watch" to get the PID from the output.
+	cmd := exec.Command("docker", "compose", "watch")
+	cmd.Dir = repoPath
+	out := &bytes.Buffer{}
+	cmd.Stdout = out
+	cmd.Stderr = out
+	// We know it will give error, thats what we want.
+	cmd.Run()
+	
+	scanner := bufio.NewScanner(out)
+	for scanner.Scan() {
+		line := scanner.Text()
+		fmt.Println(line)
+		if strings.Contains(line, "PID") {
+			// The output is something like this:
+			// cannot take exclusive lock for project "ecommercesystem": process with PID 105 is still running
+			parts := strings.Split(line, "PID")
+			if len(parts) < 2 {
+				continue
+			}
+			pidPart := strings.TrimSpace(parts[1])
+			pidStr := strings.Split(pidPart, " ")[0]
+			pid, err := strconv.Atoi(pidStr)
+			if err != nil {
+				log.Printf("Failed to parse PID from compose output: %v", err)
+				continue
+			}
+			log.Printf("Found stale compose lock with PID %d. Attempting to kill process.", pid)
+			proc, err := os.FindProcess(pid)
+			if err != nil {
+				log.Printf("Failed to find process with PID %d: %v", pid, err)
+				continue
+			}
+			if err := proc.Kill(); err != nil {
+				log.Printf("Failed to kill process with PID %d: %v", pid, err)
+				continue
+			}
+			log.Printf("Successfully killed process with PID %d. Lock should be cleared now.", pid)
+			break
+		}
+	}
+	return nil	
+}
+
+func getTraefikContainerName(repoPath string) (string, error) {
+    cmd := exec.Command("docker", "compose", "ps", "--format", "json")
+    cmd.Dir = repoPath
+    out, err := cmd.Output()
+    if err != nil {
+        return "", err
+    }
+
+    // Try unmarshaling as an array first (Modern Docker behavior)
+    var containers []ComposeContainer
+    if err := json.Unmarshal(out, &containers); err == nil {
+        for _, c := range containers {
+            if c.Service == "traefik" {
+                return c.Name, nil
+            }
+        }
+    }
+
+    // Fallback: Try line-by-line (Older/Some environments)
+    scanner := bufio.NewScanner(bytes.NewReader(out))
+    for scanner.Scan() {
+        var c ComposeContainer
+        if err := json.Unmarshal(scanner.Bytes(), &c); err == nil {
+            if c.Service == "traefik" {
+                return c.Name, nil
+            }
+        }
+    }
+    return "", fmt.Errorf("traefik container not found")
+}
+
+// getTraefikSharedNetworkAliases reads the compose file and extracts the aliases
+// that were intended for traefik's traefik_internal network (i.e. Traefik-fronted
+// service names). These are replayed as --alias flags when connecting shared_network
+// post-up, since the container can only be created with a single network.
+func getTraefikSharedNetworkAliases(repoPath string) ([]string, error) {
+	composeFilePath := filepath.Join(repoPath, "docker-compose.yml")
+	composeContent, err := ReadFileContent(composeFilePath)
+	if err != nil {
+		return nil, err
+	}
+
+	var root map[string]interface{}
+	if err := yaml.Unmarshal([]byte(composeContent), &root); err != nil {
+		return nil, err
+	}
+
+	services, ok := root["services"].(map[string]interface{})
+	if !ok {
+		return nil, fmt.Errorf("no services found")
+	}
+
+	traefik, ok := services["traefik"].(map[string]interface{})
+	if !ok {
+		// No traefik service — not an error, just nothing to do
+		return nil, nil
+	}
+
+	networks, ok := traefik["networks"].(map[string]interface{})
+	if !ok {
+		return nil, nil
+	}
+
+	// Aliases are stored on traefik_internal by addAliasToTraefik.
+	// They are replayed onto shared_network at runtime via network connect.
+	internalNet, ok := networks["traefik_internal"].(map[string]interface{})
+	if !ok {
+		return nil, nil
+	}
+
+	rawAliases, exists := internalNet["aliases"]
+	if !exists {
+		return nil, nil
+	}
+
+	var aliases []string
+	switch v := rawAliases.(type) {
+	case []interface{}:
+		for _, a := range v {
+			aliases = append(aliases, fmt.Sprint(a))
+		}
+	case []string:
+		aliases = v
+	}
+
+	return aliases, nil
+}
+
+// CheckComposeHealth runs `docker compose ps --format json`,
 // parses the output line-by-line, and verifies that all expected
 // services are running and healthy.
 func CheckComposeHealth(repoPath string, expectedServices map[string]int, mitigationStartTime time.Time) error {
-
 	cmd := exec.Command("docker", "compose", "ps", "--format", "json")
 	cmd.Dir = repoPath
 
@@ -146,11 +396,9 @@ func CheckComposeHealth(repoPath string, expectedServices map[string]int, mitiga
 	}
 
 	scanner := bufio.NewScanner(bytes.NewReader(out))
-
 	foundServices := map[string]bool{}
 
 	for scanner.Scan() {
-
 		var container ComposeContainer
 		line := scanner.Bytes()
 
@@ -192,4 +440,30 @@ func CheckComposeHealth(repoPath string, expectedServices map[string]int, mitiga
 	}
 
 	return nil
+}
+
+func LoopUntilHealthy(repoPath string, expectedServices map[string]int, mitigationStartTime time.Time) error {
+	maxRetries := 15
+
+	for i := 0; i < maxRetries; i++ {
+		err := CheckComposeHealth(repoPath, expectedServices, mitigationStartTime)
+		if err == nil {
+			log.Println("Architecture is healthy!")
+			return nil
+		}
+
+		switch err.(type) {
+		case *ServiceUnhealthyError:
+			log.Printf("Service unhealthy (attempt %d/%d): %v", i+1, maxRetries, err)
+		case *ServiceNotStartedError:
+			log.Printf("Service not started yet (attempt %d/%d): %v", i+1, maxRetries, err)
+		default:
+			log.Printf("Unknown error (attempt %d/%d): %v", i+1, maxRetries, err)
+		}
+
+		log.Printf("Retrying in 10 seconds...")
+		time.Sleep(10 * time.Second)
+	}
+
+	return fmt.Errorf("failed to achieve healthy state after %d retries", maxRetries)
 }

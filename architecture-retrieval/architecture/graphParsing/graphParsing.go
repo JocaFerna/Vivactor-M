@@ -20,6 +20,7 @@ type Node struct{
 type NodeProperties struct{
 	Language string `json:"language"`
 	OrderOfMagnitudeOfFiles string `json:"orderOfMagnitudeOfFiles"`
+	Port string `json:"port,omitempty"`
 }
 
 type Edge struct{

@@ -6,7 +6,8 @@
             "type": "BasicNode", 
             "properties": {
                 "language": "java",
-                "orderOfMagnitudeOfFiles": "10^2"
+                "orderOfMagnitudeOfFiles": "10^2",
+                "port": "8080"
             }
         },
         {
@@ -15,7 +16,8 @@
             "type": "BasicNode", 
             "properties": {
                 "language": "python",
-                "orderOfMagnitudeOfFiles": "10^3"
+                "orderOfMagnitudeOfFiles": "10^3",
+                "port": "8080"
             }
         },
         {
@@ -24,7 +26,8 @@
             "type": "BasicNode", 
             "properties": {
                 "language": "javascript",
-                "orderOfMagnitudeOfFiles": "10^1"
+                "orderOfMagnitudeOfFiles": "10^1",
+                "port": "8080"
             }
         },
         {

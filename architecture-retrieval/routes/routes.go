@@ -3,7 +3,10 @@ package routes
 import (
 	"architecture-retrieval/architecture"
 	"architecture-retrieval/architecture/emulation"
+
 	"architecture-retrieval/refactor/nonAPIVersioned"
+	hardCodedEnpointsRefactor "architecture-retrieval/refactor/hardCodedEndpoints"
+
 	"architecture-retrieval/smells/apiNonVersioned"
 	"architecture-retrieval/smells/cyclicDependency"
 	"architecture-retrieval/smells/esbUsage"
@@ -55,7 +58,7 @@ func Register() {
 
 		// Refactor Handling
 		"/refactor/mitigateNonAPIVersionedSmells": nonAPIVersionedHandler,
-		
+		"/refactor/mitigateHardcodedEndpointsSmells": hardcodedEndpointsRefactorHandler,
 	}
 
 	for route, handler := range routes {
@@ -67,6 +70,36 @@ func Register() {
 
 func home(writer http.ResponseWriter, request *http.Request) {
 	fmt.Fprintf(writer, "{\"message\": \"Hello World\"}")
+}
+
+
+// Refactor of Hardcoded Endpoints -> Handling of the route
+func hardcodedEndpointsRefactorHandler(writer http.ResponseWriter, request *http.Request) {
+	log.Println("Received mitigate hardcoded endpoints smells request")
+	
+	graph := request.URL.Query().Get("graph")
+	endpoints := request.URL.Query().Get("endpoints")
+	// Remove [ and ] from the endpoints string
+	endpoints = strings.TrimPrefix(endpoints, "[")
+	endpoints = strings.TrimSuffix(endpoints, "]")
+	hardcodedEndpoints := strings.Split(endpoints, ",")
+	fmt.Printf("Hardcoded Endpoints: %v\n", hardcodedEndpoints)
+
+
+	graphRefactored, err := hardCodedEnpointsRefactor.RefactorGraphWithHardcodedEndpoints(graph, hardcodedEndpoints)
+	
+	fmt.Printf("Refactored Graph: %s\n", graphRefactored)
+	if err != nil {
+		fmt.Printf("Error mitigating hardcoded endpoints smells: %s\n", err.Error())
+		writer.WriteHeader(http.StatusInternalServerError)
+		writer.Write([]byte("{\"message\": \"Error mitigating hardcoded endpoints smells\"}"))
+		return
+	} else {
+		// Return 200 OK
+		writer.WriteHeader(http.StatusOK)
+		writer.Write([]byte("{\"message\": \"Mitigating hardcoded endpoints smells...\", \"graph\": " + graphRefactored + "}"))
+		return
+	}
 }
 
 // All Smells Report -> Handling of the route

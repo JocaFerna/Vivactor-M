@@ -1,7 +1,7 @@
 const http = require('http');
 
 const serviceName = "{{SERVICE_NAME}}";
-const port = 8080;
+const port = {{PORT}};
 
 const server = http.createServer((req, res) => {
     console.log(`[${serviceName}] Received ${req.method} request on ${req.url}`);

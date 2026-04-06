@@ -55,7 +55,7 @@ const LoadArchJsonModal = ({ isOpen, onClose }) => {
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
-      <div className="bg-white rounded-xl shadow-2xl w-full max-w-md p-6 relative overflow-hidden border border-slate-200">
+      <div className="bg-white rounded-xl shadow-2xl w-full max-w-md p-6 relative overflow-hidden border border-slate-200 z-50">
         
         {/* Close Button */}
         <button onClick={handleClose} className="absolute right-4 top-4 text-slate-400 hover:text-slate-600 transition-colors">

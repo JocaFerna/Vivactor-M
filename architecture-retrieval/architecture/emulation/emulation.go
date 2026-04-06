@@ -87,7 +87,6 @@ func EmulateArchitecture(graph string) error {
 		// 5. Build the docker compose entry for this node
 		servicesYaml.WriteString(fmt.Sprintf("  %s:\n", node.Label))
 		servicesYaml.WriteString(fmt.Sprintf("    build: ./%s\n", node.Label))
-		servicesYaml.WriteString(fmt.Sprintf("    container_name: %s\n", node.Label))
 		servicesYaml.WriteString("    networks:\n")
 		servicesYaml.WriteString("      - shared_network\n")
 		
@@ -99,12 +98,25 @@ func EmulateArchitecture(graph string) error {
 		
 		// TODO: This port configuration is TOO much basic and we will maybe need to refactor
 		var port int
-		if node.Type == "DatabaseNode" {
+		if node.Properties.Port != "" {
+			port, _ = strconv.Atoi(node.Properties.Port)
+		} else if node.Type == "DatabaseNode" {
 			port = 5432
 		} else if node.Properties.Language == "html" {
 			port = 80
 		} else {
 			port = 8080
+		}
+
+		// Check if port is valid, otherwise skip healthcheck
+		if port <= 0 || port > 65535 {
+			return fmt.Errorf("Invalid port %d for service %s, skipping healthcheck\n", port, node.Label)
+		}
+
+		// Also, check if the port matches any potentially edges towards that node.
+		check := checkPortMatch(node, graphStruct.Edges)
+		if !check {
+			log.Printf("Warning: Port %d for service %s does not match any incoming edges. Healthcheck might fail.\n", port, node.Label)
 		}
 
 		servicesYaml.WriteString("    healthcheck:\n")
@@ -570,7 +582,11 @@ func loadAndProcessTemplate(node graphparsing.Node, lang string) (string, string
 	content = strings.ReplaceAll(content, "{{LANGUAGE}}", node.Properties.Language)
 	content = strings.ReplaceAll(content, "{{NODE_ID}}", string(node.Id))
 	content = strings.ReplaceAll(content, "{{MAGNITUDE}}", node.Properties.OrderOfMagnitudeOfFiles)
-
+	if node.Properties.Port != "" {
+		content = strings.ReplaceAll(content, "{{PORT}}", node.Properties.Port)
+	} else {
+		content = strings.ReplaceAll(content, "{{PORT}}", "8080") // Default port if not specified
+	}
 	return ext, content, nil
 }
 
@@ -587,3 +603,15 @@ func generateMagnitudeFiles(dir string, magnitudeStr string, ext string) {
 	}
 }
 
+func checkPortMatch(node graphparsing.Node, edges []graphparsing.Edge) bool {
+	for _, edge := range edges {
+		if edge.Target == node.Id {
+			// Check if any of the call definitions in the source node's outgoing calls contains the port number
+			callDef := edge.Properties.CallDefinitionInSource
+			if strings.Contains(callDef, node.Properties.Port) {
+				return true
+			}
+		}
+	}
+	return false
+}	

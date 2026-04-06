@@ -19,12 +19,12 @@ const refactorSoftware = async (repoUrl, refactorType, selectedApis) => {
                 const apisToRefactor = Object.keys(selectedApis).filter(api => selectedApis[api]);
                 params.append('apis', JSON.stringify(apisToRefactor));
 
-                const fullUrl = `${API_BASE}/refactor/mitigateNonAPIVersionedSmells?${params.toString()}`;
-                const response = await fetch(fullUrl);
+                var fullUrl = `${API_BASE}/refactor/mitigateNonAPIVersionedSmells?${params.toString()}`;
+                var response = await fetch(fullUrl);
                 
                 if (!response.ok) throw new Error(`Server error: ${response.status}`);
                 
-                const result = await response.json();
+                var result = await response.json();
                 console.log("Repository refactored successfully:", result);
 
                 useGlobalStore.setState({ 
@@ -39,6 +39,25 @@ const refactorSoftware = async (repoUrl, refactorType, selectedApis) => {
             case "cyclicDependency":
             case "esbUsage":
             case "hardcodedEndpoints":
+                console.log("Initiating refactor for hardcoded endpoints...");
+                const hardcodedEndpointsToRefactor = Object.keys(selectedApis).filter(api => selectedApis[api]);
+                params.append('endpoints', JSON.stringify(hardcodedEndpointsToRefactor));
+
+                fullUrl = `${API_BASE}/refactor/mitigateHardcodedEndpointsSmells?${params.toString()}`;
+                response = await fetch(fullUrl);
+                
+                if (!response.ok) throw new Error(`Server error: ${response.status}`);
+                
+                result = await response.json();
+                console.log("Repository refactored successfully:", result);
+
+                useGlobalStore.setState({ 
+                    refactoringOfHardcodedEndpoints: false, 
+                    refactoringOfHardcodedEndpointsJSON: null, 
+                    isArchitectureRunning: true,           
+                    graphData: result.graph ? result.graph : currentState.graphData 
+                });
+                break;
             case "innapropriateServiceIntimacity":
             case "microserviceGreedy":
             case "sharedLibraries":
@@ -155,7 +174,7 @@ const RefactorModal = ({ isOpen, onClose, typeOfRefactor }) => {
 
     return (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
-            <div className="bg-white rounded-lg shadow-xl w-full max-w-md p-6 relative">
+            <div className="bg-white rounded-lg shadow-xl w-full max-w-md p-6 relative ">
                 <button 
                     onClick={handleClose} 
                     className="absolute right-4 top-4 text-slate-400 hover:text-slate-600 transition-colors"

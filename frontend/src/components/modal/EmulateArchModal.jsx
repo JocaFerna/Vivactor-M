@@ -55,7 +55,7 @@ const EmulateArchModal = ({ isOpen, onClose }) => {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
       {/* Added min-h-[500px] and flex flex-col to the container */}
-      <div className="bg-white rounded-lg shadow-xl w-full max-w-md  p-6 relative flex flex-col">
+      <div className="bg-white rounded-lg shadow-xl w-full max-w-md  p-6 relative flex flex-col z-50">
         <button onClick={handleClose} className="absolute right-4 top-4 text-slate-400 hover:text-slate-600">
           <X size={20} />
         </button>

@@ -1,19 +1,19 @@
 services:
-  traefik:
-    image: traefik:v3.0
-    command:
-      - "--api.insecure=true"
-      - "--api.dashboard=true"
-      - "--providers.docker=true"
-      - "--providers.docker.exposedbydefault=false"
-      - "--entrypoints.web.address=:80"
-    ports:
-      - "80:80"     # Public entrypoint
-      - "8082:8080"   # Traefik dashboard (optional)
-    volumes:
-      - /var/run/docker.sock:/var/run/docker.sock:ro
-    networks:
-      - shared_network
+  #traefik:
+  #  image: traefik:v3.0
+  #  command:
+  #    - "--api.insecure=true"
+  #    - "--api.dashboard=true"
+  #    - "--providers.docker=true"
+  #    - "--providers.docker.exposedbydefault=false"
+  #    - "--entrypoints.web.address=:80"
+  #  ports:
+  #    - "80:80"     # Public entrypoint
+  #    - "8082:8080"   # Traefik dashboard (optional)
+  #  volumes:
+  #    - /var/run/docker.sock:/var/run/docker.sock:ro
+  #  networks:
+  #    - shared_network
     
 
   frontend:
@@ -75,21 +75,6 @@ services:
       - dev.env
     networks:
       - shared_network
-  msa-nose:
-    build:
-      context: ./msa-nose
-      dockerfile: Dockerfile
-    ports:
-      - "8080:8080"
-    volumes:
-      # Use the absolute path from the project root to your downloads
-      - ./repositories/downloads:/app/downloads
-    networks:
-      - shared_network
-    labels:
-      - "traefik.enable=true"
-      - "traefik.http.routers.msanose.rule=Host(`msanose.localhost`)"
-      - "traefik.http.services.msanose.loadbalancer.server.port=8080"
 volumes:
   nix_data:
 networks:
