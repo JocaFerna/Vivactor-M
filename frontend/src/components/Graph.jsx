@@ -9,7 +9,8 @@ const NODE_ICONS = {
     java: 'https://cdn-icons-png.flaticon.com/512/226/226777.png',
     python: 'https://cdn-icons-png.flaticon.com/512/5968/5968350.png',
     javascript: 'https://cdn-icons-png.flaticon.com/512/5968/5968292.png',
-    html: 'https://cdn-icons-png.flaticon.com/512/1051/1051277.png'
+    html: 'https://cdn-icons-png.flaticon.com/512/1051/1051277.png',
+    traefik: 'https://cdn.jsdelivr.net/gh/homarr-labs/dashboard-icons/svg/traefik.svg',
 };
 
 const Graph = () => {

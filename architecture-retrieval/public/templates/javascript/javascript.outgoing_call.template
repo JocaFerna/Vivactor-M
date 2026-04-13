@@ -1,14 +1,11 @@
-function startOutgoingCalls() {
-    setInterval(() => {
-        console.log(`[{{SERVICE_NAME}}] Attempting call to {{TARGET_LABEL}}...`);
-        
-        http.get("[{{CALL_DEFINITION}}]", (res) => {
-            console.log(`[{{SERVICE_NAME}}] Response from {{TARGET_LABEL}} on [{{CALL_DEFINITION}}]: ${res.statusCode}`);
-        }).on('error', (e) => {
-            console.log(`[{{SERVICE_NAME}}] Connection to {{TARGET_LABEL}} failed: ${e.message}`);
-        });
-        
-    }, 10000); // 10,000 milliseconds = 10 seconds
-}
 
-startOutgoingCalls();
+setInterval(() => {
+    console.log(`[{{SERVICE_NAME}}] Attempting call to {{TARGET_LABEL}}...`);
+    
+    http.get("[{{CALL_DEFINITION}}]", (res) => {
+        console.log(`[{{SERVICE_NAME}}] Response from {{TARGET_LABEL}} on [{{CALL_DEFINITION}}]: ${res.statusCode}`);
+    }).on('error', (e) => {
+        console.log(`[{{SERVICE_NAME}}] Connection to {{TARGET_LABEL}} failed: ${e.message}`);
+    });
+    
+}, 10000); // 10,000 milliseconds = 10 seconds

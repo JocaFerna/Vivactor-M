@@ -1,0 +1,16 @@
+// BEGIN DB CALL TO {{TARGET_LABEL}}
+// Inside your scheduler loop
+scheduler.scheduleAtFixedRate(() -> {
+    String url = "jdbc:postgresql://{{TARGET_LABEL}}:5432/emulation_db";
+    String user = "user";
+    String password = "pass";
+
+    try (java.sql.Connection conn = java.sql.DriverManager.getConnection(url, user, password)) {
+        if (conn != null) {
+            System.out.println("[{{SERVICE_NAME}}] [CONNECTED] to {{TARGET_LABEL}} database successfully.");
+        }
+    } catch (java.sql.SQLException e) {
+        System.out.println("[{{SERVICE_NAME}}] Connection to {{TARGET_LABEL}} failed: " + e.getMessage());
+    }
+}, 0, 10, TimeUnit.SECONDS);
+// END DB CALL TO {{TARGET_LABEL}}

@@ -1,0 +1,13 @@
+                # BEGIN DB CALL TO {{TARGET_LABEL}}
+                print(f"[{{SERVICE_NAME}}] Attempting DB connection to {{TARGET_LABEL}}...")
+                conn = psycopg2.connect(
+                    host="{{TARGET_LABEL}}",
+                    database="emulation_db",
+                    user="user",
+                    password="pass",
+                    connect_timeout=5
+                )
+                print(f"[{{SERVICE_NAME}}] [CONNECTED] to {{TARGET_LABEL}} on port 5432", flush=True)
+                conn.close()
+                # END DB CALL TO {{TARGET_LABEL}}
+                

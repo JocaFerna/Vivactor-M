@@ -62,6 +62,25 @@ const refactorSoftware = async (repoUrl, refactorType, selectedApis) => {
             case "microserviceGreedy":
             case "sharedLibraries":
             case "sharedPersistency":
+                console.log("Initiating refactor for shared persistency...");
+                const sharedPersistencyToRefactor = Object.keys(selectedApis).filter(api => selectedApis[api]);
+                params.append('sharedPersistencySmells', JSON.stringify(sharedPersistencyToRefactor));
+
+                fullUrl = `${API_BASE}/refactor/mitigateSharedPersistencySmells?${params.toString()}`;
+                response = await fetch(fullUrl);
+                
+                if (!response.ok) throw new Error(`Server error: ${response.status}`);
+                
+                result = await response.json();
+                console.log("Repository refactored successfully:", result);
+                
+                useGlobalStore.setState({
+                    refactoringOfSharedPersistency: false,
+                    refactoringOfSharedPersistencyJSON: null,
+                    isArchitectureRunning: true,
+                    graphData: result.graph ? result.graph : currentState.graphData
+                });
+                break;
             case "wrongCuts":
             case "tooManyStandards":
             case "noAPIGateway":

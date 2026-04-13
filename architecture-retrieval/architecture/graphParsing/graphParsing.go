@@ -77,6 +77,16 @@ func GetNodeById(graph Graph, id string) (Node, error) {
 	return none, fmt.Errorf("Node with id %s not found", id)
 }
 
+func GetNodeByLabel(graph Graph, label string) (Node, error) {
+	for _, node := range graph.Nodes {
+		if node.Label == label {
+			return node, nil
+		}
+	}
+	var none Node
+	return none, fmt.Errorf("Node with label %s not found", label)
+}
+
 func GetAdjacentNodes(graph Graph, nodeId string) ([]*Node, error) {
     var adjacentNodes []*Node
     for _, edge := range graph.Edges {
@@ -117,4 +127,13 @@ func GetOrderOfMagnitudeOfFiles(node Node) int {
 		return 0 // Default to 0 if parsing fails
 	}
 	return exponent
+}
+
+func RemoveEdge(edges []Edge, edgeToRemove Edge) []Edge {
+	for i, edge := range edges {
+		if edge == edgeToRemove {
+			return append(edges[:i], edges[i+1:]...)
+		}
+	}
+	return edges
 }

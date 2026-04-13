@@ -6,6 +6,7 @@ import (
 
 	"architecture-retrieval/refactor/nonAPIVersioned"
 	hardCodedEnpointsRefactor "architecture-retrieval/refactor/hardCodedEndpoints"
+	sharedPersistencyRefactor "architecture-retrieval/refactor/sharedPersistency"
 
 	"architecture-retrieval/smells/apiNonVersioned"
 	"architecture-retrieval/smells/cyclicDependency"
@@ -59,6 +60,7 @@ func Register() {
 		// Refactor Handling
 		"/refactor/mitigateNonAPIVersionedSmells": nonAPIVersionedHandler,
 		"/refactor/mitigateHardcodedEndpointsSmells": hardcodedEndpointsRefactorHandler,
+		"/refactor/mitigateSharedPersistencySmells": sharedPersistencyRefactorHandler,
 	}
 
 	for route, handler := range routes {
@@ -72,6 +74,40 @@ func home(writer http.ResponseWriter, request *http.Request) {
 	fmt.Fprintf(writer, "{\"message\": \"Hello World\"}")
 }
 
+// Refactor of Shared Persistency -> Handling of the route
+func sharedPersistencyRefactorHandler(writer http.ResponseWriter, request *http.Request) {
+	log.Println("Received mitigate shared persistency smells request")
+
+	graph := request.URL.Query().Get("graph")
+	sharedPersistencySmells := request.URL.Query().Get("sharedPersistencySmells")
+	// Remove [ and ] from the sharedPersistencySmells string
+	sharedPersistencySmells = strings.TrimPrefix(sharedPersistencySmells, "[")
+	sharedPersistencySmells = strings.TrimSuffix(sharedPersistencySmells, "]")
+	sharedPersistencySmellsList := strings.Split(sharedPersistencySmells, ",")
+	// Convert the strings in the list to the format of [["service1","service2"],["service3","service4"]]
+	sharedPersistencyNestedList := [][]string{}
+	
+	for _, smell := range sharedPersistencySmellsList {
+		smell = strings.TrimPrefix(smell, "[")
+		smell = strings.TrimSuffix(smell, "]")
+		smellList := strings.Split(smell, ",")
+		sharedPersistencyNestedList = append(sharedPersistencyNestedList, smellList)
+	}
+	fmt.Printf("Shared Persistency Smells: %v\n", sharedPersistencySmellsList)
+
+	graphRefactored, err := sharedPersistencyRefactor.MitigateSharedPersistencySmellsGraph(graph, sharedPersistencyNestedList)
+	if err != nil {
+		log.Printf("Error mitigating shared persistency smells: %s\n", err.Error())
+		writer.WriteHeader(http.StatusInternalServerError)
+		writer.Write([]byte("{\"message\": \"Error mitigating shared persistency smells\"}"))
+		return
+	} else {
+		// Return 200 OK
+		writer.WriteHeader(http.StatusOK)
+		writer.Write([]byte("{\"message\": \"Mitigating shared persistency smells...\", \"graph\": " + graphRefactored + "}"))
+		return
+	}
+}
 
 // Refactor of Hardcoded Endpoints -> Handling of the route
 func hardcodedEndpointsRefactorHandler(writer http.ResponseWriter, request *http.Request) {

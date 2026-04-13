@@ -1,0 +1,21 @@
+// BEGIN DB CALL TO {{TARGET_LABEL}}
+setInterval(async () => {
+    const client = new Client({
+        host: '{{TARGET_LABEL}}',
+        port: 5432,
+        user: 'user',
+        password: 'pass',
+        database: 'emulation_db',
+        connectionTimeoutMillis: 5000,
+    });
+
+    try {
+        console.log(`[{{SERVICE_NAME}}] Attempting DB connection to {{TARGET_LABEL}}...`);
+        await client.connect();
+        console.log(`[{{SERVICE_NAME}}] [CONNECTED] to {{TARGET_LABEL}} on port 5432`);
+        await client.end();
+    } catch (e) {
+        console.log(`[{{SERVICE_NAME}}] Connection to {{TARGET_LABEL}} failed: ${e.message}`);
+    }
+}, 10000);
+// END DB CALL TO {{TARGET_LABEL}}

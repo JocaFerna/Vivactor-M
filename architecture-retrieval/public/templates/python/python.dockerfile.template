@@ -6,7 +6,7 @@ WORKDIR /app
 RUN apt-get update && apt-get install -y netcat-openbsd && rm -rf /var/lib/apt/lists/*
 
 # Install Flask directly to avoid needing extra files
-RUN pip install --no-cache-dir flask requests
+RUN pip install --no-cache-dir flask requests psycopg2-binary
 
 COPY . .
 

@@ -39,6 +39,13 @@ func EmulateArchitecture(graph string) error {
 	os.RemoveAll(basePath)
 	os.MkdirAll(basePath, 0755)
 
+	// In case that there is some process "docker compose watch" running from a previous emulation, we should kill it before starting a new one.
+	err = CleanProjectLock(basePath)
+	if err != nil {
+		return fmt.Errorf("error cleaning project lock: %w", err)
+	}
+	
+
 	// This will hold the content for the docker-compose.yml file
 	var servicesYaml strings.Builder
 
@@ -208,8 +215,15 @@ func EmulateArchitecture(graph string) error {
 				if err != nil {
 					log.Printf("Error inserting incoming call to %s from %s: %v", targetNode.Label, sourceNode.Label, err)
 				}
+			} else if targetNode.Type == "DatabaseNode" && sourceNode.Type != "DatabaseNode" {
+				// NEW: Handle Database Connection
+				lang_source := strings.ToLower(sourceNode.Properties.Language)
+				err := handleCallToDBNode(sourceNode, targetNode, edge, lang_source, basePath)
+				if err != nil {
+					log.Printf("Error handling DB call: %v", err)
+				}
 			}
-			// TODO: For now, we are ignoring edges from/to DatabaseNodes in terms of call representation, as they might not have "main" files or typical incoming/outgoing call logic.
+			
 		}
 	}
 
@@ -270,6 +284,68 @@ func EmulateArchitecture(graph string) error {
     return nil
 }
 
+// This function handles the special case of edges towards DatabaseNodes. Since these nodes might not have typical "main" files or incoming/outgoing call logic, we can represent the DB call by injecting environment variables or configuration files into the source node's service to represent the database connection details (e.g., host, port, credentials). This is a simplified representation and can be expanded based on specific requirements.
+func handleCallToDBNode(sourceNode *graphparsing.Node, targetNode *graphparsing.Node, edge graphparsing.Edge, lang string, basePath string) error {
+	// 1. Configuration: mapping languages to their actual code extensions
+	extensions := map[string]string{
+		"java":       ".java",
+		"python":     ".py",
+		"javascript": ".js",
+		"golang":     ".go",
+	}
+
+	ext, ok := extensions[lang]
+	if !ok {
+		// If it's HTML or plain text, a DB call doesn't make sense, so we skip
+		return nil
+	}
+
+	// 2. Read the existing main file content of the SOURCE service
+	mainFilePath := filepath.Join(basePath, sourceNode.Label, "main"+ext)
+	mainContent, err := os.ReadFile(mainFilePath)
+	if err != nil {
+		return fmt.Errorf("error reading source main file for DB call: %w", err)
+	}
+
+	// 3. Load the Database-specific template for the source language
+	// File expected at: public/templates/[lang]/[lang].outgoing_call_db.template
+	templatePath := filepath.Join("public", "templates", lang, lang+".outgoing_call_db.template")
+	data, err := os.ReadFile(templatePath)
+	if err != nil {
+		log.Printf("Warning: DB template not found for %s at %s. Skipping DB call injection.", lang, templatePath)
+		return nil
+	}
+
+	// 4. Manipulate the template content
+	// We use the targetNode.Label as the hostname for the DB connection
+	content := string(data)
+	content = strings.ReplaceAll(content, "{{SERVICE_NAME}}", sourceNode.Label)
+	content = strings.ReplaceAll(content, "{{TARGET_LABEL}}", targetNode.Label)
+	
+	// Default credentials based on your Postgres Dockerfile setup
+	content = strings.ReplaceAll(content, "{{DB_NAME}}", "emulation_db")
+	content = strings.ReplaceAll(content, "{{DB_USER}}", "user")
+	content = strings.ReplaceAll(content, "{{DB_PASS}}", "pass")
+
+	// 5. Inject the DB call into the outgoing calls placeholder
+	newContent := string(mainContent)
+	if lang != "python" {
+		// Use JS/Java style comments
+		newContent = strings.ReplaceAll(newContent, "//{{OUTGOING_CALLS}}", content+"\n//{{OUTGOING_CALLS}}")
+	} else {
+		// Use Python style comments
+		newContent = strings.ReplaceAll(newContent, "#{{OUTGOING_CALLS}}", content+"\n#{{OUTGOING_CALLS}}")
+	}
+
+	// 6. Write the updated content back to the source service's main file
+	err = os.WriteFile(mainFilePath, []byte(newContent), 0644)
+	if err != nil {
+		return fmt.Errorf("error writing DB call to main file: %w", err)
+	}
+
+	log.Printf("Successfully injected DB call logic from %s to %s", sourceNode.Label, targetNode.Label)
+	return nil
+}
 // Sanitize a string
 func sanitizeString(input string) string {
 	input = strings.ToLower(input)
@@ -279,6 +355,67 @@ func sanitizeString(input string) string {
 		}
 		return -1
 	}, input)
+}
+
+func CleanProjectLock(repoPath string) error {
+
+	// First, let's check if there is a docker compose process running.
+	// We check for 'docker compose' specifically to see if a 
+    // management process is active.
+    cmd := exec.Command("pgrep", "-f", "docker")
+    err := cmd.Run()
+
+	if err != nil {
+		// No docker-related processes found, so no lock to clean
+		log.Println("No docker processes found, no lock to clean.")
+		return nil
+	}
+
+
+
+    // Do "docker compose watch" to get the PID from the output.
+	cmd = exec.Command("docker", "compose", "watch")
+	cmd.Dir = repoPath
+	out := &bytes.Buffer{}
+	cmd.Stdout = out
+	cmd.Stderr = out
+
+	
+	cmd.Run()
+	
+	scanner := bufio.NewScanner(out)
+	for scanner.Scan() {
+		line := scanner.Text()
+		fmt.Println(line)
+		if strings.Contains(line, "PID") {
+			// The output is something like this:
+			// cannot take exclusive lock for project "ecommercesystem": process with PID 105 is still running
+			parts := strings.Split(line, "PID")
+			if len(parts) < 2 {
+				continue
+			}
+			pidPart := strings.TrimSpace(parts[1])
+			pidStr := strings.Split(pidPart, " ")[0]
+			pid, err := strconv.Atoi(pidStr)
+			if err != nil {
+				log.Printf("Failed to parse PID from compose output: %v", err)
+				continue
+			}
+			log.Printf("Found stale compose lock with PID %d. Attempting to kill process.", pid)
+			proc, err := os.FindProcess(pid)
+			if err != nil {
+				log.Printf("Failed to find process with PID %d: %v", pid, err)
+				continue
+			}
+			if err := proc.Kill(); err != nil {
+				log.Printf("Failed to kill process with PID %d: %v", pid, err)
+				continue
+			}
+			log.Printf("Successfully killed process with PID %d. Lock should be cleared now.", pid)
+			break
+		}
+	}
+	return nil	
 }
 
 // Insert the incoming call representation into the target node's main file

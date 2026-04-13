@@ -185,6 +185,7 @@ const AddGraphElement = () => {
                             <option value="python">Python</option>
                             <option value="javascript">JavaScript</option>
                             <option value="html">HTML</option>
+                            <option value="traefik">Traefik</option>
                         </select>
                     </div>}
                     {nodeForm.type !== "DatabaseNode" &&

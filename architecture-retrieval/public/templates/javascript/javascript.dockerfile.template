@@ -1,7 +1,9 @@
 FROM node:20-alpine
 WORKDIR /app
+RUN npm install express pg
 COPY . .
 # Add this line to your Alpine-based Dockerfile templates
 RUN apk add --no-cache netcat-openbsd
 # No npm install needed for native http module
+
 CMD ["node", "main.js"]

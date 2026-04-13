@@ -1,7 +1,17 @@
-FROM eclipse-temurin:17-jdk-alpine
+FROM eclipse-temurin:17-jdk
+
 WORKDIR /app
+
+# Add netcat-openbsd to the install list
+RUN apt-get update && apt-get install -y \
+    curl \
+    netcat-openbsd \
+    && rm -rf /var/lib/apt/lists/*
+
+RUN curl -o postgresql.jar https://jdbc.postgresql.org/download/postgresql-42.7.2.jar
+
 COPY . .
-# Add this line to your Alpine-based Dockerfile templates
-RUN apk add --no-cache netcat-openbsd
-# Run as a single-file source program (no javac needed)
-CMD ["java", "main.java"]
+
+EXPOSE 8080
+
+CMD ["java", "-cp", ".:postgresql.jar", "main.java"]

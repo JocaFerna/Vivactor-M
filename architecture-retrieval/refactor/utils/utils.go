@@ -249,6 +249,68 @@ func RestartDockerCompose(repoPath string) error {
 	return nil
 }
 
+func RestartDockerComposeWithoutTraefik(repoPath string) error {
+	if err := CleanProjectLock(repoPath); err != nil {
+        log.Printf("Lock cleanup warning: %v", err)
+    }
+
+	downCmd := exec.Command("docker", "compose", "down", "--remove-orphans")
+	downCmd.Dir = repoPath
+	//downCmd.Stdout = os.Stdout
+	downCmd.Stderr = os.Stderr
+	if err := downCmd.Run(); err != nil {
+		return fmt.Errorf("failed to down compose: %w", err)
+	}
+
+
+
+	buildCmd := exec.Command("docker", "compose", "build")
+	buildCmd.Dir = repoPath
+	//buildCmd.Stdout = os.Stdout
+	buildCmd.Stderr = os.Stderr
+	if err := buildCmd.Run(); err != nil {
+		return fmt.Errorf("failed to build docker compose: %w", err)
+	}
+
+	upCmd := exec.Command("docker", "compose", "watch")
+	upCmd.Dir = repoPath
+	//upCmd.Stdout = os.Stdout
+	upCmd.Stderr = os.Stderr
+	if err := upCmd.Start(); err != nil {
+		return fmt.Errorf("failed to start docker compose watch: %w", err)
+	}
+
+
+	// Read compose file to determine which services to health-check
+	composeFilePath := filepath.Join(repoPath, "docker-compose.yml")
+	composeContent, err := ReadFileContent(composeFilePath)
+	if err != nil {
+		return fmt.Errorf("failed to read compose file: %w", err)
+	}
+
+	var yamlContent map[string]interface{}
+	if err := yaml.Unmarshal([]byte(composeContent), &yamlContent); err != nil {
+		return fmt.Errorf("failed to parse compose YAML: %w", err)
+	}
+
+	services, ok := yamlContent["services"].(map[string]interface{})
+	if !ok {
+		return fmt.Errorf("invalid compose file format: missing services")
+	}
+
+	expectedServices := make(map[string]int)
+	for serviceName := range services {
+		expectedServices[serviceName] = 1
+	}
+
+	if err := LoopUntilHealthy(repoPath, expectedServices, time.Now()); err != nil {
+		return fmt.Errorf("failed to wait for healthy state: %w", err)
+	}
+
+	return nil
+}
+	
+
 
 func CleanProjectLock(repoPath string) error {
     // Do "docker compose watch" to get the PID from the output.
@@ -466,4 +528,216 @@ func LoopUntilHealthy(repoPath string, expectedServices map[string]int, mitigati
 	}
 
 	return fmt.Errorf("failed to achieve healthy state after %d retries", maxRetries)
+}
+
+func CreateDatabaseFromNode(graphStruct graphparsing.Graph, node graphparsing.Node, basePath string, databaseOwner graphparsing.Node) (graphparsing.Node, graphparsing.Graph, error) {
+	// Create a new database node for the service.
+	sanitizedLabel := SanitizeName(node.Label)
+	serviceDir := filepath.Join(basePath, sanitizedLabel)
+	// Create the directory for the service if it doesn't exist
+	if _, err := os.Stat(serviceDir); os.IsNotExist(err) {
+		err := os.Mkdir(serviceDir, 0755)
+		if err != nil {
+			return graphparsing.Node{}, graphparsing.Graph{}, fmt.Errorf("error creating service directory: %v", err)
+		}
+	}
+	dockerContent, _ := loadDockerfileTemplate("database", sanitizedLabel)	
+	os.WriteFile(filepath.Join(serviceDir, "Dockerfile"), []byte(dockerContent), 0644)
+
+	// Buid the docker compose entry for this node
+	var servicesYaml strings.Builder
+	servicesYaml.WriteString(fmt.Sprintf("  %s:\n", sanitizedLabel))
+	servicesYaml.WriteString(fmt.Sprintf("    build: ./%s\n", sanitizedLabel))
+	servicesYaml.WriteString("    networks:\n")
+	servicesYaml.WriteString("      - shared_network\n")
+
+	port := 5432
+	servicesYaml.WriteString("    healthcheck:\n")
+	servicesYaml.WriteString(fmt.Sprintf("      test: [\"CMD-SHELL\", \"nc -z localhost %d || exit 1\"]\n", port))
+	servicesYaml.WriteString("      interval: 5s\n")
+	servicesYaml.WriteString("      timeout: 5s\n")
+	servicesYaml.WriteString("      retries: 5\n")
+
+	watchAction := "rebuild"
+	watchTarget := "/app"
+	servicesYaml.WriteString("    develop:\n")
+	servicesYaml.WriteString("      watch:\n")
+	servicesYaml.WriteString(fmt.Sprintf("        - action: %s\n", watchAction))
+	servicesYaml.WriteString(fmt.Sprintf("          path: ./%s\n", sanitizedLabel))
+	servicesYaml.WriteString(fmt.Sprintf("          target: %s\n", watchTarget))
+	servicesYaml.WriteString("\n")
+
+	// Add the servicesYaml content to the compose file
+	composeFilePath := filepath.Join(basePath, "docker-compose.yml")
+	composeContent, err := ReadFileContent(composeFilePath)
+	if err != nil {
+		return graphparsing.Node{}, graphparsing.Graph{}, fmt.Errorf("error reading compose file: %v", err)
+	}
+
+	// Insert servicesYaml under the "services:" section
+	lines := strings.Split(composeContent, "\n")
+	var newComposeContent strings.Builder
+	inserted := false
+	for _, line := range lines {
+		newComposeContent.WriteString(line + "\n")
+		if strings.TrimSpace(line) == "services:" && !inserted {
+			newComposeContent.WriteString(servicesYaml.String())
+			inserted = true
+		}
+	}
+
+	err = WriteFileContent(composeFilePath, newComposeContent.String())
+	if err != nil {
+		return graphparsing.Node{}, graphparsing.Graph{}, fmt.Errorf("error writing updated compose file: %v", err)
+	}
+
+	// Add the edge to the database owner
+	newEdge := graphparsing.Edge{
+		Source: databaseOwner.Id,
+		Target: node.Id,
+		Endpoint: "/db/owned",
+		Properties: graphparsing.EdgeProperties{
+			CallDefinitionInSource: "jdbc:postgresql://" + node.Label + ":5432/mydb",
+			Method: "SQL",
+		},
+	}
+	graphStruct.Edges = append(graphStruct.Edges, newEdge)
+
+	// Create the connection in the file of the database owner.
+	databaseOwner.Label = SanitizeName(databaseOwner.Label)
+	err = handleCallToDBNode(&databaseOwner, &node, newEdge, strings.ToLower(databaseOwner.Properties.Language), basePath)
+	if err != nil {
+		return graphparsing.Node{}, graphparsing.Graph{}, fmt.Errorf("error handling DB call: %v", err)
+	}
+
+	return node,graphStruct, nil
+
+}
+
+// This function handles the special case of edges towards DatabaseNodes. Since these nodes might not have typical "main" files or incoming/outgoing call logic, we can represent the DB call by injecting environment variables or configuration files into the source node's service to represent the database connection details (e.g., host, port, credentials). This is a simplified representation and can be expanded based on specific requirements.
+func handleCallToDBNode(sourceNode *graphparsing.Node, targetNode *graphparsing.Node, edge graphparsing.Edge, lang string, basePath string) error {
+	// 1. Configuration: mapping languages to their actual code extensions
+	extensions := map[string]string{
+		"java":       ".java",
+		"python":     ".py",
+		"javascript": ".js",
+		"golang":     ".go",
+	}
+
+	ext, ok := extensions[lang]
+	if !ok {
+		// If it's HTML or plain text, a DB call doesn't make sense, so we skip
+		return nil
+	}
+
+	// 2. Read the existing main file content of the SOURCE service
+	mainFilePath := filepath.Join(basePath, sourceNode.Label, "main"+ext)
+	mainContent, err := os.ReadFile(mainFilePath)
+	if err != nil {
+		return fmt.Errorf("error reading source main file for DB call: %w", err)
+	}
+
+	// 3. Load the Database-specific template for the source language
+	// File expected at: public/templates/[lang]/[lang].outgoing_call_db.template
+	templatePath := filepath.Join("public", "templates", lang, lang+".outgoing_call_db.template")
+	data, err := os.ReadFile(templatePath)
+	if err != nil {
+		log.Printf("Warning: DB template not found for %s at %s. Skipping DB call injection.", lang, templatePath)
+		return nil
+	}
+
+	// 4. Manipulate the template content
+	// We use the targetNode.Label as the hostname for the DB connection
+	content := string(data)
+	content = strings.ReplaceAll(content, "{{SERVICE_NAME}}", SanitizeName(sourceNode.Label))
+	content = strings.ReplaceAll(content, "{{TARGET_LABEL}}", SanitizeName(targetNode.Label))
+	
+	// Default credentials based on your Postgres Dockerfile setup
+	content = strings.ReplaceAll(content, "{{DB_NAME}}", "emulation_db")
+	content = strings.ReplaceAll(content, "{{DB_USER}}", "user")
+	content = strings.ReplaceAll(content, "{{DB_PASS}}", "pass")
+
+	// 5. Inject the DB call into the outgoing calls placeholder
+	newContent := string(mainContent)
+	if lang != "python" {
+		// Use JS/Java style comments
+		newContent = strings.ReplaceAll(newContent, "//{{OUTGOING_CALLS}}", content+"\n//{{OUTGOING_CALLS}}")
+	} else {
+		// Use Python style comments
+		newContent = strings.ReplaceAll(newContent, "#{{OUTGOING_CALLS}}", content+"\n#{{OUTGOING_CALLS}}")
+	}
+
+	// 6. Write the updated content back to the source service's main file
+	err = os.WriteFile(mainFilePath, []byte(newContent), 0644)
+	if err != nil {
+		return fmt.Errorf("error writing DB call to main file: %w", err)
+	}
+
+	log.Printf("Successfully injected DB call logic from %s to %s", sourceNode.Label, targetNode.Label)
+	return nil
+}
+
+
+
+// Load the dockerfile template for the given language and replace placeholders
+func loadDockerfileTemplate(lang string, serviceName string) (string, error) {
+    templatePath := filepath.Join("public", "templates", lang, lang+".dockerfile.template")
+    data, err := os.ReadFile(templatePath)
+    if err != nil {
+        return "", err
+    }
+    
+    content := string(data)
+    content = strings.ReplaceAll(content, "{{SERVICE_NAME}}", serviceName)
+    return content, nil
+}
+
+func RemoveCallToDBNode(sourceNode *graphparsing.Node, targetNode *graphparsing.Node, basePath string) error {
+	// 1. Configuration: mapping languages to their actual code extensions
+	extensions := map[string]string{
+		"java":       ".java",
+		"python":     ".py",
+		"javascript": ".js",
+		"golang":     ".go",
+	}
+
+	ext, ok := extensions[strings.ToLower(sourceNode.Properties.Language)]
+	if !ok {
+		// If it's HTML or plain text, a DB call doesn't make sense, so we skip
+		return nil
+	}
+
+	mainFilePath := filepath.Join(basePath, SanitizeName(sourceNode.Label), "main"+ext)
+	mainContent, err := os.ReadFile(mainFilePath)
+	if err != nil {
+		return fmt.Errorf("error reading source main file for DB call removal: %w", err)
+	}
+
+	content := string(mainContent)
+
+	var startMarker, endMarker string
+	if ext == ".py" {
+		startMarker = fmt.Sprintf("# BEGIN DB CALL TO %s", SanitizeName(targetNode.Label))
+		endMarker = fmt.Sprintf("# END DB CALL TO %s", SanitizeName(targetNode.Label))
+	} else {
+		startMarker = fmt.Sprintf("// BEGIN DB CALL TO %s", SanitizeName(targetNode.Label))
+		endMarker = fmt.Sprintf("// END DB CALL TO %s", SanitizeName(targetNode.Label))
+	}
+	
+	startIdx := strings.Index(content, startMarker)
+	endIdx := strings.Index(content, endMarker)
+	if startIdx == -1 || endIdx == -1 || endIdx < startIdx {
+		log.Printf("DB call markers not found for %s in %s. Skipping DB call removal.", targetNode.Label, sourceNode.Label)
+		return nil
+	}
+	
+	// Remove the content between the markers, including the markers themselves
+	newContent := content[:startIdx] + content[endIdx+len(endMarker):]
+	err = os.WriteFile(mainFilePath, []byte(newContent), 0644)
+	if err != nil {
+		return fmt.Errorf("error writing updated main file after DB call removal: %w", err)
+	}
+	
+	log.Printf("Successfully removed DB call logic from %s to %s", sourceNode.Label, targetNode.Label)
+	return nil
 }

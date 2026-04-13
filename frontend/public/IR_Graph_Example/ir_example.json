@@ -72,6 +72,33 @@
                 "callDefinitionInSource":"http://accounts-service:8080/api/endpoint3",
                 "method": "PUT"
             }
+        },
+        {
+            "source": "1",
+            "target": "5",
+            "endpoint": "/db/endpoint1",
+            "properties": {
+                "callDefinitionInSource":"jdbc:postgresql://database-common:5432/mydb",
+                "method": "SQL"
+            }
+        },
+        {
+            "source": "2",
+            "target": "5",
+            "endpoint": "/db/endpoint2",
+            "properties": {
+                "callDefinitionInSource":"postgresql://database-common:5432/mydb",
+                "method": "SQL"
+            }
+        },
+        {
+            "source": "3",
+            "target": "5",
+            "endpoint": "/db/endpoint3",
+            "properties": {
+                "callDefinitionInSource":"mongodb://database-common:27017/mydb",
+                "method": "SQL"
+            }
         }
     ],
     "systemContext": {
