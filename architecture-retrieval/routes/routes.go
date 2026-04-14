@@ -7,6 +7,8 @@ import (
 	"architecture-retrieval/refactor/nonAPIVersioned"
 	hardCodedEnpointsRefactor "architecture-retrieval/refactor/hardCodedEndpoints"
 	sharedPersistencyRefactor "architecture-retrieval/refactor/sharedPersistency"
+	sharedLibrariesRefactor "architecture-retrieval/refactor/sharedLibraries"
+
 
 	"architecture-retrieval/smells/apiNonVersioned"
 	"architecture-retrieval/smells/cyclicDependency"
@@ -61,6 +63,7 @@ func Register() {
 		"/refactor/mitigateNonAPIVersionedSmells": nonAPIVersionedHandler,
 		"/refactor/mitigateHardcodedEndpointsSmells": hardcodedEndpointsRefactorHandler,
 		"/refactor/mitigateSharedPersistencySmells": sharedPersistencyRefactorHandler,
+		"/refactor/mitigateSharedLibrariesSmells": sharedLibrariesRefactorHandler,
 	}
 
 	for route, handler := range routes {
@@ -72,6 +75,31 @@ func Register() {
 
 func home(writer http.ResponseWriter, request *http.Request) {
 	fmt.Fprintf(writer, "{\"message\": \"Hello World\"}")
+}
+
+// Refactor of Shared Libraries -> Handling of the route
+func sharedLibrariesRefactorHandler(writer http.ResponseWriter, request *http.Request) {
+	log.Println("Received mitigate shared libraries smells request")
+	graph := request.URL.Query().Get("graph")
+	sharedLibrariesSmells := request.URL.Query().Get("sharedLibrariesSmells")
+	// Remove [ and ] from the sharedLibrariesSmells string
+	sharedLibrariesSmells = strings.TrimPrefix(sharedLibrariesSmells, "[")
+	sharedLibrariesSmells = strings.TrimSuffix(sharedLibrariesSmells, "]")
+	sharedLibrariesSmellsList := strings.Split(sharedLibrariesSmells, ",")
+	fmt.Printf("Shared Libraries Smells: %v\n", sharedLibrariesSmellsList)
+
+	graphRefactored, err := sharedLibrariesRefactor.MitigateSharedLibraries(graph, sharedLibrariesSmellsList)
+	if err != nil {
+		log.Printf("Error mitigating shared libraries smells: %s\n", err.Error())
+		writer.WriteHeader(http.StatusInternalServerError)
+		writer.Write([]byte("{\"message\": \"Error mitigating shared libraries smells\"}"))
+		return
+	} else {
+		// Return 200 OK
+		writer.WriteHeader(http.StatusOK)
+		writer.Write([]byte("{\"message\": \"Mitigating shared libraries smells...\", \"graph\": " + graphRefactored + "}"))
+		return
+	}
 }
 
 // Refactor of Shared Persistency -> Handling of the route

@@ -1,170 +1,110 @@
 package sharedLibraries
+
 import (
-	"encoding/json"
 	"fmt"
-	"os"
-	"path/filepath"
 	"strings"
-)
-// --- Types for JSON Parsing ---
+	"time"
 
-type LibraryDetail struct {
-	Library       string   `json:"library"`
-	Microservices []string `json:"microservices"`
-	Count         int      `json:"count"`
-}
-
-// SharedLibraryContext now matches the root of your JSON
-type SharedLibraryContext struct {
-	SharedLibraries map[string]LibraryDetail `json:"sharedLibraries"`
-}
-
-// --- Strategy Constants ---
-
-type ExtractionStrategy string
-
-const (
-	SidecarStrategy ExtractionStrategy = "SIDECAR"
-	GatewayStrategy ExtractionStrategy = "GATEWAY"
-	Internal        ExtractionStrategy = "INTERNAL"
+	graphparsing "architecture-retrieval/architecture/graphParsing"
+	"architecture-retrieval/refactor/utils"
 )
 
-// --- Core Refactoring Function ---
-
-func MitigateSharedLibrarySmells(repoName string, jsonData string) error {
-    // DEBUG: Print the first 50 characters to see what we actually received
-    if len(jsonData) > 50 {
-        fmt.Printf("Debug JSON prefix: %s\n", jsonData[:50])
-    } else {
-        fmt.Printf("Debug JSON content: %s\n", jsonData)
-    }
-
-    var context SharedLibraryContext // Use the root struct we fixed earlier
-
-    // Attempt to unmarshal
-    err := json.Unmarshal([]byte(jsonData), &context)
-    if err != nil {
-        return fmt.Errorf("failed to parse JSON: %w", err)
-    }
-
-    // Check if we actually got data
-    if len(context.SharedLibraries) == 0 {
-        return fmt.Errorf("JSON parsed successfully but sharedLibraries map is empty")
-    }
-
-	cleanName := strings.TrimPrefix(repoName, "/")
-	repoName = filepath.Join("/api/downloads", cleanName)
-
-	fmt.Printf("Starting Mitigation for Repository: %s\n", repoName)
-	fmt.Println(strings.Repeat("-", 40))
-
-	// Iterate through the map
-	for _, detail := range context.SharedLibraries {
-		strategy := classifyLibrary(detail.Library)
-
-		if strategy == Internal {
-			fmt.Printf("[SKIP] %s is an internal utility. Strategy: Accept Redundancy.\n", detail.Library)
-			continue
-		}
-
-		fmt.Printf("[ACT] %s identified for extraction. Strategy: %s\n", detail.Library, strategy)
-
-		for _, msRaw := range detail.Microservices {
-			parts := strings.Split(msRaw, ":")
-			if len(parts) < 2 {
-				continue
-			}
-			msName := parts[1]
-
-			pomPath := filepath.Join(repoName, msName, "pom.xml")
-			
-			// Note: ensure removeDependencyFromPom is defined in your package
-			err := removeDependencyFromPom(pomPath, detail.Library)
-			if err != nil {
-				fmt.Printf("   - Warning: Could not update POM for %s: %v\n", msName, err)
-			} else {
-				fmt.Printf("   - Success: Removed library from %s/pom.xml\n", msName)
-			}
-		}
-
-		// Note: ensure generateSharedServiceManifest is defined in your package
-		err = generateSharedServiceManifest(repoName, detail.Library, strategy)
-		if err != nil {
-			fmt.Printf("   - Error generating shared service: %v\n", err)
-		}
+func MitigateSharedLibraries(graph string, sharedLibrariesSmells []string) (string,error){
+	// Parse the graph
+	graphStruct, err := graphparsing.ParseGraph(graph)
+	if err != nil {
+		return "", err
 	}
 
-	return nil
-}
+	basePath := utils.GetBasePathOfGraph(graphStruct)
+	
+	graphLibraries := graphStruct.System.SelfManagedLibraries
 
-// --- Helper Functions ---
-
-// classifyLibrary determines if the library is "passible" to be a service
-func classifyLibrary(lib string) ExtractionStrategy {
-	lib = strings.ToLower(lib)
-	if strings.Contains(lib, "mongodb") || strings.Contains(lib, "config") {
-		return SidecarStrategy
-	}
-	if strings.Contains(lib, "security") || strings.Contains(lib, "oauth2") {
-		return GatewayStrategy
-	}
-	return Internal
-}
-
-// removeDependencyFromPom strips the XML block from the target file
-func removeDependencyFromPom(path string, fullLib string) error {
-	input, err := os.ReadFile(path)
-	if err != nil { return err }
-
-	parts := strings.Split(fullLib, ":")
-	group, artifact := parts[0], parts[1]
-
-	lines := strings.Split(string(input), "\n")
-	var output []string
-	inTargetBlock := false
-	tempBlock := []string{}
-
-	for i := 0; i < len(lines); i++ {
-		line := lines[i]
-		
-		if strings.Contains(line, "<dependency>") {
-			inTargetBlock = true
-			tempBlock = append(tempBlock, line)
-			continue
-		}
-
-		if inTargetBlock {
-			tempBlock = append(tempBlock, line)
-			if strings.Contains(line, "</dependency>") {
-				// Check if the block we just collected matches our target
-				blockStr := strings.Join(tempBlock, " ")
-				if !strings.Contains(blockStr, group) || !strings.Contains(blockStr, artifact) {
-					output = append(output, tempBlock...)
+	for _, libraryName := range sharedLibrariesSmells {
+		// Trim \" from the library name if it exists.
+		libraryName = strings.TrimPrefix(libraryName,"\"")
+		libraryName = strings.TrimSuffix(libraryName,"\"")
+		// Match library name by library in graphStruct
+		for _, library := range graphLibraries {
+			if library.Name == libraryName {
+				fmt.Printf("Mitigating shared library smell for library %s...\n", library.Name)
+				// First,let's create a new service for the library,
+				// to allow it to be deployed and developed independently
+				// by the connected microservices.
+				newServiceName := fmt.Sprintf("%s-service", library.Name)
+				newNode := graphparsing.Node{
+					Id: fmt.Sprintf("%d", len(graphStruct.Nodes)+1),
+					Label: newServiceName,
+					Type: "BasicNode", //TODO: We are using basicNode, but we can add a new type in the future.
+					Properties: graphparsing.NodeProperties{
+						Language: "java",
+						OrderOfMagnitudeOfFiles: "10^1",
+					},
 				}
-				tempBlock = []string{}
-				inTargetBlock = false
+				graphStruct.Nodes = append(graphStruct.Nodes, newNode)
+
+				// Create the new service.
+				err := utils.CreateBasicFileFromNode(newNode, basePath)
+				if err != nil {
+					return "", fmt.Errorf("error creating service for library %s: %v", library.Name, err)
+				}
+
+				// Now, for each service that is using the library, we must 
+				// create a edge between the new service and the service
+				// from the service that is using the library and the library.
+				for _, serviceName := range library.ServicesUsingLibrary {
+					// Get the node of the service by its name.
+					serviceNode, err := graphparsing.GetNodeByLabel(graphStruct, serviceName)
+					if err != nil {
+						return "", fmt.Errorf("error getting node for service %s: %v", serviceName, err)
+					}
+					// Create an endpoint for the new service, we can use the library name as the endpoint.
+					endpoint := fmt.Sprintf("/%s", utils.SanitizeName(libraryName))
+
+					// Create the call Definition
+					callDefinition := fmt.Sprintf("http://%s:8080%s", newServiceName, endpoint)
+
+					// Create an edge between the new service and the service that is using the library.
+					newEdge := graphparsing.Edge{
+						Source: serviceNode.Id,
+						Target: newNode.Id,
+						Endpoint: endpoint,
+						Properties: graphparsing.EdgeProperties{
+							CallDefinitionInSource: callDefinition,
+							Method: "GET",
+						},
+					}
+					graphStruct.Edges = append(graphStruct.Edges, newEdge)
+					
+
+					// Add the new edge to the architecture.
+					err = utils.HandleCallFromNode(serviceNode, newNode, newEdge, basePath)
+					if err != nil {
+						return "", fmt.Errorf("error handling call from node %s: %v", serviceNode.Label, err)
+					}
+				}
 			}
-			continue
 		}
-		output = append(output, line)
+		// Remove the library from the graphStruct, since it is now a service.
+		newLibraries := []graphparsing.SelfManagedLibraries{}
+		for _, library := range graphStruct.System.SelfManagedLibraries {
+			if library.Name != libraryName {
+				newLibraries = append(newLibraries, library)
+			}
+		}
+		graphStruct.System.SelfManagedLibraries = newLibraries
 	}
-
-	return os.WriteFile(path, []byte(strings.Join(output, "\n")), 0644)
-}
-
-// generateSharedServiceManifest creates the infrastructure config
-func generateSharedServiceManifest(repo string, lib string, strategy ExtractionStrategy) error {
-	dir := filepath.Join(repo, "extracted-services")
-	os.MkdirAll(dir, 0755)
-
-	filename := fmt.Sprintf("%s-config.yaml", strings.ReplaceAll(lib, ":", "-"))
-	content := ""
-
-	if strategy == SidecarStrategy {
-		content = fmt.Sprintf("# Extracted Shared Service for %s\napiVersion: dapr.io/v1alpha1\nkind: Component\nmetadata:\n  name: shared-%s\nspec:\n  type: state.mongodb\n", lib, lib)
-	} else {
-		content = fmt.Sprintf("# Centralized Gateway Logic for %s\nroute: /auth\ntarget: shared-auth-service\n", lib)
+	// Restart the docker compose to apply the changes.
+	err = utils.RestartDockerComposeWithoutTraefik(basePath)
+	if err != nil {
+		return "", fmt.Errorf("error restarting docker compose: %v", err)
 	}
-
-	return os.WriteFile(filepath.Join(dir, filename), []byte(content), 0644)
+	
+	// Wait for the services to restart and the graph to be updated.
+	time.Sleep(10 * time.Second)
+	stringGraph, err := graphparsing.SerializeGraph(graphStruct)
+	if err != nil {
+		return "", fmt.Errorf("error serializing graph: %v", err)
+	}
+	return stringGraph, nil
 }

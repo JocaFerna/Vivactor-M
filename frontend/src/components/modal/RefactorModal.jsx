@@ -61,6 +61,23 @@ const refactorSoftware = async (repoUrl, refactorType, selectedApis) => {
             case "innapropriateServiceIntimacity":
             case "microserviceGreedy":
             case "sharedLibraries":
+                console.log("Initiating refactor for shared libraries...");
+                const sharedLibrariesToRefactor = Object.keys(selectedApis).filter(api => selectedApis[api]);
+                params.append('sharedLibrariesSmells', JSON.stringify(sharedLibrariesToRefactor));
+                
+                fullUrl = `${API_BASE}/refactor/mitigateSharedLibrariesSmells?${params.toString()}`;
+                response = await fetch(fullUrl);
+                if (!response.ok) throw new Error(`Server error: ${response.status}`);
+                result = await response.json();
+                console.log("Repository refactored successfully:", result);
+                
+                useGlobalStore.setState({
+                    refactoringOfSharedLibraries: false,
+                    refactoringOfSharedLibrariesJSON: null,
+                    isArchitectureRunning: true,
+                    graphData: result.graph ? result.graph : currentState.graphData
+                });
+                break;
             case "sharedPersistency":
                 console.log("Initiating refactor for shared persistency...");
                 const sharedPersistencyToRefactor = Object.keys(selectedApis).filter(api => selectedApis[api]);

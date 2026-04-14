@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
+	"math"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -740,4 +741,350 @@ func RemoveCallToDBNode(sourceNode *graphparsing.Node, targetNode *graphparsing.
 	
 	log.Printf("Successfully removed DB call logic from %s to %s", sourceNode.Label, targetNode.Label)
 	return nil
+}
+
+func CreateBasicFileFromNode(node graphparsing.Node, basePath string) error {
+	extensions := map[string]string{
+		"java":       ".java",
+		"python":     ".py",
+		"javascript": ".js",
+		"html":       ".html",
+		"golang":     ".go",
+	}
+	var servicesYaml strings.Builder
+	
+	ext, ok := extensions[strings.ToLower(node.Properties.Language)]
+	if !ok {
+		return fmt.Errorf("unsupported language: %s", node.Properties.Language)
+	}
+	
+	node.Label = SanitizeName(node.Label)
+	serviceDir := filepath.Join(basePath, node.Label)
+	if _, err := os.Stat(serviceDir); os.IsNotExist(err) {
+		err := os.Mkdir(serviceDir, 0755)
+		if err != nil {
+			return fmt.Errorf("error creating service directory: %v", err)
+		}
+	}
+
+	// 1. Load template content for the node's language
+	ext, content, err := loadAndProcessTemplate(node, strings.ToLower(node.Properties.Language))
+	if err != nil {
+		return fmt.Errorf("error loading template: %v", err)
+	}
+
+	//2. Write the main entry file
+	mainFilePath := filepath.Join(serviceDir, "main"+ext)
+	err = os.WriteFile(mainFilePath, []byte(content), 0644)
+
+	//3. Generate magnitude files.
+	generateMagnitudeFiles(serviceDir, node.Properties.OrderOfMagnitudeOfFiles, ext)
+
+
+	//4. Load and write Dockerfile template
+	dockerContent, err := loadDockerfileTemplate(strings.ToLower(node.Properties.Language), node.Label)
+	if err != nil {
+		log.Printf("Warning: Dockerfile template not found for %s. Skipping Dockerfile creation.", node.Properties.Language)
+	} else {
+		dockerFilePath := filepath.Join(serviceDir, "Dockerfile")
+		os.WriteFile(dockerFilePath, []byte(dockerContent), 0644)
+	}
+	// 5. Build the docker compose entry for this node
+	servicesYaml.WriteString(fmt.Sprintf("  %s:\n", node.Label))
+	servicesYaml.WriteString(fmt.Sprintf("    build: ./%s\n", node.Label))
+	servicesYaml.WriteString("    networks:\n")
+	servicesYaml.WriteString("      - shared_network\n")
+
+	// Optional: Add environment variables for edges
+	if node.Properties.Language == "python" || node.Properties.Language == "javascript" {
+		servicesYaml.WriteString("    environment:\n")
+		servicesYaml.WriteString(fmt.Sprintf("      - SERVICE_NAME=%s\n", node.Label))
+	}
+	var port int
+	if node.Properties.Port != "" {
+		port, _ = strconv.Atoi(node.Properties.Port)
+	} else if node.Type == "DatabaseNode" {
+		port = 5432
+	} else if node.Properties.Language == "html" {
+		port = 80
+	} else {
+		port = 8080
+	}
+
+	// Check if port is valid, otherwise skip healthcheck
+	if port <= 0 || port > 65535 {
+		return fmt.Errorf("Invalid port %d for service %s, skipping healthcheck\n", port, node.Label)
+	}
+
+	//TODO: Lacks checkPortMatch.
+
+	servicesYaml.WriteString("    healthcheck:\n")
+	servicesYaml.WriteString(fmt.Sprintf("      test: [\"CMD-SHELL\", \"nc -z localhost %d || exit 1\"]\n", port))
+	servicesYaml.WriteString("      interval: 5s\n")
+	servicesYaml.WriteString("      timeout: 5s\n")
+	servicesYaml.WriteString("      retries: 5\n")
+
+	// 5.5. Generate the Docker Compose "Watch" block (develop)
+	lang := strings.ToLower(node.Properties.Language)
+	var watchAction, watchTarget, watchIgnore string
+
+	switch lang {
+		case "html":
+			watchAction = "sync"
+			watchTarget = "/usr/share/nginx/html"
+		case "python":
+			watchAction = "sync+restart"
+			watchTarget = "/app"
+			// Standardized indentation: 12 spaces for each list item
+			watchIgnore = "            - \"**/__pycache__/**\"\n            - \"**/.pytest_cache/**\""
+		case "javascript", "js":
+			watchAction = "sync+restart"
+			watchTarget = "/app"
+			watchIgnore = "            - \"**/node_modules/**\""
+		case "java":
+			watchAction = "sync+restart"
+			watchTarget = "/app"
+		default:
+			watchAction = "rebuild"
+			watchTarget = "/app"
+	}
+
+	// Write the develop/watch section to the YAML buffer
+	servicesYaml.WriteString("    develop:\n")
+	servicesYaml.WriteString("      watch:\n")
+	servicesYaml.WriteString(fmt.Sprintf("        - action: %s\n", watchAction))
+	servicesYaml.WriteString(fmt.Sprintf("          path: ./%s\n", node.Label))
+	servicesYaml.WriteString(fmt.Sprintf("          target: %s\n", watchTarget))
+
+	if watchIgnore != "" {
+		// We write the key 'ignore:' and then a newline before pasting the items
+		servicesYaml.WriteString("          ignore:\n")
+		servicesYaml.WriteString(fmt.Sprintf("%s\n", watchIgnore))
+	}
+	servicesYaml.WriteString("\n")
+
+	// 6. Add the servicesYaml content to the compose file
+	composeFilePath := filepath.Join(basePath, "docker-compose.yml")
+	composeContent, err := ReadFileContent(composeFilePath)
+	if err != nil {
+		return fmt.Errorf("error reading compose file: %v", err)
+	}
+
+	// Insert servicesYaml under the "services:" section
+	lines := strings.Split(composeContent, "\n")
+	var newComposeContent strings.Builder
+	inserted := false
+	for _, line := range lines {
+		newComposeContent.WriteString(line + "\n")
+		if strings.TrimSpace(line) == "services:" && !inserted {
+			newComposeContent.WriteString(servicesYaml.String())
+			inserted = true
+		}
+	}
+
+	err = WriteFileContent(composeFilePath, newComposeContent.String())
+	if err != nil {
+		return fmt.Errorf("error writing updated compose file: %v", err)
+	}
+	return err
+}
+
+
+
+func HandleCallFromNode(sourceNode graphparsing.Node, targetNode graphparsing.Node, edge graphparsing.Edge, basePath string) error {
+	// Guarantee that label's are sanitized for file paths
+	sourceNode.Label = SanitizeName(sourceNode.Label)
+	targetNode.Label = SanitizeName(targetNode.Label)
+	
+	if sourceNode.Type != "DatabaseNode" && targetNode.Type != "DatabaseNode" {
+		// Find the language of the source node to determine how to represent the call
+		lang_source := strings.ToLower(sourceNode.Properties.Language)
+		lang_target := strings.ToLower(targetNode.Properties.Language)
+
+		// Insert the outgoing call into source node's main file
+		err := insertOutgoingCall(&sourceNode, &targetNode, edge, lang_source, basePath)
+		if err != nil {
+			log.Printf("Error inserting outgoing call from %s to %s: %v", sourceNode.Label, targetNode.Label, err)
+			return err
+		}
+
+		// Insert the incoming call into target node's main file
+		err = insertIncomingCall(&targetNode, &sourceNode, edge, lang_target, basePath)
+		if err != nil {
+			log.Printf("Error inserting incoming call to %s from %s: %v", targetNode.Label, sourceNode.Label, err)
+			return err
+		}
+	}
+	return nil
+}
+// Insert the incoming call representation into the target node's main file
+func insertIncomingCall(targetNode *graphparsing.Node, sourceNode *graphparsing.Node, edge graphparsing.Edge, lang string, basePath string) error {
+	// Configuration: mapping languages to their actual code extensions
+	extensions := map[string]string{
+		"java":       ".java",
+		"python":     ".py",
+		"javascript": ".js",
+		"html":       ".html",
+		"golang":     ".go",
+	}
+	
+
+	ext, ok := extensions[lang]
+	if !ok {
+		ext = ".txt"
+	}
+
+	if ext == ".html" || ext == ".txt" {
+		// For non-code files, we won't insert incoming call logic
+		return nil
+	}
+	// Read the existing main file content
+	mainFilePath := filepath.Join(basePath, targetNode.Label, "main"+ext)
+	mainContent, err := os.ReadFile(mainFilePath)
+	if err != nil {
+		return fmt.Errorf("error reading main file: %w", err)
+	}
+	
+
+	// Read from your public/templates folder
+	templatePath := filepath.Join("public", "templates",lang, lang+".incoming_call.template")
+	data, err := os.ReadFile(templatePath)
+	if err != nil {
+		return err
+	}
+
+	// Get safe name for the endpoint (e.g., replace slashes with underscores)
+	safeName := strings.ReplaceAll(edge.Endpoint, "/", "_")
+	safeName = strings.Trim(safeName, "_") // Remove leading/trailing underscores
+
+	// Manipulate the template content
+	content := string(data)
+	content = strings.ReplaceAll(content, "{{ENDPOINT}}", edge.Endpoint)
+	content = strings.ReplaceAll(content, "{{SAFE_NAME}}", safeName)
+	content = strings.ReplaceAll(content, "{{SERVICE_NAME}}", targetNode.Label)
+
+	// Append the outgoing call content to the main file
+	newContent := string(mainContent)
+	if lang != "python" {
+		newContent = strings.ReplaceAll(newContent, "//{{CUSTOM_ROUTES}}", content+"\n//{{CUSTOM_ROUTES}}") // Insert before the placeholder
+	} else {
+		newContent = strings.ReplaceAll(newContent, "#{{CUSTOM_ROUTES}}", content+"\n#{{CUSTOM_ROUTES}}") // Insert before the placeholder
+	}
+
+	// Write the updated content back to the main file
+	err = os.WriteFile(mainFilePath, []byte(newContent), 0644)
+	if err != nil {
+		return fmt.Errorf("error writing main file: %w", err)
+	}
+	return nil
+}
+// Insert the outgoing call representation into the source node's main file
+func insertOutgoingCall(sourceNode *graphparsing.Node, targetNode *graphparsing.Node, edge graphparsing.Edge, lang string, basePath string) error {
+	// Configuration: mapping languages to their actual code extensions
+	extensions := map[string]string{
+		"java":       ".java",
+		"python":     ".py",
+		"javascript": ".js",
+		"html":       ".html",
+		"golang":     ".go",
+	}
+
+	ext, ok := extensions[lang]
+	if !ok {
+		ext = ".txt"
+	}
+
+
+	if ext == ".html" || ext == ".txt" {
+		// For non-code files, we won't insert incoming call logic
+		return nil
+	}
+
+	// Read the existing main file content
+	mainFilePath := filepath.Join(basePath, sourceNode.Label, "main"+ext)
+	mainContent, err := os.ReadFile(mainFilePath)
+	if err != nil {
+		return fmt.Errorf("error reading main file: %w", err)
+	}
+	
+
+	// Read from your public/templates folder
+	templatePath := filepath.Join("public", "templates",lang, lang+".outgoing_call.template")
+	data, err := os.ReadFile(templatePath)
+	if err != nil {
+		return err
+	}
+
+	// Sanitize the call definition from hyphens
+	callDefSafe := strings.ReplaceAll(edge.Properties.CallDefinitionInSource, "-", "")
+	// Manipulate the template content
+	content := string(data)
+	content = strings.ReplaceAll(content, "{{SERVICE_NAME}}", sourceNode.Label)
+	content = strings.ReplaceAll(content, "{{TARGET_LABEL}}", targetNode.Label)
+	content = strings.ReplaceAll(content, "[{{CALL_DEFINITION}}]", callDefSafe)
+
+	// Append the outgoing call content to the main file
+	newContent := string(mainContent)
+	if lang != "python" {
+		newContent = strings.ReplaceAll(newContent, "//{{OUTGOING_CALLS}}", content+"\n//{{OUTGOING_CALLS}}") // Insert before the placeholder
+	} else {
+		newContent = strings.ReplaceAll(newContent, "#{{OUTGOING_CALLS}}", content+"\n#{{OUTGOING_CALLS}}") // Insert before the placeholder
+	}
+
+	// Write the updated content back to the main file
+	err = os.WriteFile(mainFilePath, []byte(newContent), 0644)
+	if err != nil {
+		return fmt.Errorf("error writing main file: %w", err)
+	}
+	return nil
+}
+
+func generateMagnitudeFiles(dir string, magnitudeStr string, ext string) {
+	parts := strings.Split(magnitudeStr, "^")
+	if len(parts) < 2 { return }
+	
+	exponent, _ := strconv.Atoi(parts[1])
+	count := int(math.Pow(10, float64(exponent)))
+
+	for i := 1; i < count; i++ {
+		name := filepath.Join(dir, fmt.Sprintf("module_%d%s", i, ext))
+		_ = os.WriteFile(name, []byte("// Supporting component"), 0644)
+	}
+}
+
+func loadAndProcessTemplate(node graphparsing.Node, lang string) (string, string, error) {
+	// Configuration: mapping languages to their actual code extensions
+	extensions := map[string]string{
+		"java":       ".java",
+		"python":     ".py",
+		"javascript": ".js",
+		"html":       ".html",
+		"golang":     ".go",
+	}
+
+	ext, ok := extensions[lang]
+	if !ok {
+		ext = ".txt"
+	}
+
+	// Read from your public/templates folder
+	templatePath := filepath.Join("public", "templates",lang, lang+".template")
+	data, err := os.ReadFile(templatePath)
+	if err != nil {
+		return ext, "", err
+	}
+
+	// Manipulate the template content
+	content := string(data)
+	// Inside your Go code:
+	content = strings.ReplaceAll(content, "{{SERVICE_NAME}}", node.Label)
+	content = strings.ReplaceAll(content, "{{LANGUAGE}}", node.Properties.Language)
+	content = strings.ReplaceAll(content, "{{NODE_ID}}", string(node.Id))
+	content = strings.ReplaceAll(content, "{{MAGNITUDE}}", node.Properties.OrderOfMagnitudeOfFiles)
+	if node.Properties.Port != "" {
+		content = strings.ReplaceAll(content, "{{PORT}}", node.Properties.Port)
+	} else {
+		content = strings.ReplaceAll(content, "{{PORT}}", "8080") // Default port if not specified
+	}
+	return ext, content, nil
 }
