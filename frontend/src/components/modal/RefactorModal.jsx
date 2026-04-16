@@ -99,6 +99,22 @@ const refactorSoftware = async (repoUrl, refactorType, selectedApis) => {
                 });
                 break;
             case "wrongCuts":
+                console.log("Initiating refactor for wrong cuts...");
+                
+                fullUrl = `${API_BASE}/refactor/mitigateWrongCutsSmells?${params.toString()}`;
+                response = await fetch(fullUrl);
+
+                if (!response.ok) throw new Error(`Server error: ${response.status}`);
+                
+                result = await response.json();
+                console.log("Repository refactored successfully:", result);
+                useGlobalStore.setState({
+                    refactoringOfWrongCuts: false,
+                    refactoringOfWrongCutsJSON: null,
+                    isArchitectureRunning: true,
+                    graphData: result.graph ? result.graph : currentState.graphData
+                });
+                break;
             case "tooManyStandards":
             case "noAPIGateway":
                 console.log(`Refactor for ${refactorType} is not implemented yet.`);
@@ -277,7 +293,13 @@ const RefactorModal = ({ isOpen, onClose, typeOfRefactor }) => {
                                             </label>
                                         ))
                                     ) : (
-                                        <p className="text-xs text-slate-500 italic">No objects detected for this smell.</p>
+                                        typeOfRefactor === "wrongCuts" ? (
+                                            <p className="text-xs text-slate-500 italic">
+                                               No objects detected for this smell, due to the nature of the smell.
+                                            </p>
+                                        ) : (
+                                            <p className="text-xs text-slate-500 italic">No objects detected for this smell.</p>
+                                        )
                                     )}
                                 </div>
                                 

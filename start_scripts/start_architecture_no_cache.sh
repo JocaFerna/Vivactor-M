@@ -1,4 +1,6 @@
-docker compose down
+docker compose down -v
+
+docker rm $(docker ps -a -q) || true
 
 docker network rm shared_network || true
 

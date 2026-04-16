@@ -955,7 +955,8 @@ func insertIncomingCall(targetNode *graphparsing.Node, sourceNode *graphparsing.
 
 	// Get safe name for the endpoint (e.g., replace slashes with underscores)
 	safeName := strings.ReplaceAll(edge.Endpoint, "/", "_")
-	safeName = strings.Trim(safeName, "_") // Remove leading/trailing underscores
+	safeName = strings.ReplaceAll(safeName, "-", "") // Remove leading/trailing hyphens
+
 
 	// Manipulate the template content
 	content := string(data)

@@ -8,6 +8,7 @@ import (
 	hardCodedEnpointsRefactor "architecture-retrieval/refactor/hardCodedEndpoints"
 	sharedPersistencyRefactor "architecture-retrieval/refactor/sharedPersistency"
 	sharedLibrariesRefactor "architecture-retrieval/refactor/sharedLibraries"
+	wrongCutsRefactor "architecture-retrieval/refactor/wrongCuts"
 
 
 	"architecture-retrieval/smells/apiNonVersioned"
@@ -64,6 +65,7 @@ func Register() {
 		"/refactor/mitigateHardcodedEndpointsSmells": hardcodedEndpointsRefactorHandler,
 		"/refactor/mitigateSharedPersistencySmells": sharedPersistencyRefactorHandler,
 		"/refactor/mitigateSharedLibrariesSmells": sharedLibrariesRefactorHandler,
+		"/refactor/mitigateWrongCutsSmells": wrongCutsRefactorHandler,
 	}
 
 	for route, handler := range routes {
@@ -76,6 +78,26 @@ func Register() {
 func home(writer http.ResponseWriter, request *http.Request) {
 	fmt.Fprintf(writer, "{\"message\": \"Hello World\"}")
 }
+
+// Refactor of Wrong Cuts -> Handling of the route
+func wrongCutsRefactorHandler(writer http.ResponseWriter, request *http.Request) {
+	log.Println("Received mitigate wrong cuts smells request")
+	graph := request.URL.Query().Get("graph")
+	graphRefactored, err := wrongCutsRefactor.MitigateWrongCuts(graph)
+	// For now, let's not return. We are just testing.
+	if err != nil {
+		log.Printf("Error mitigating wrong cuts smells: %s\n", err.Error())
+		writer.WriteHeader(http.StatusInternalServerError)
+		writer.Write([]byte("{\"message\": \"Error mitigating wrong cuts smells\"}"))
+		return
+	} else {
+		// Return 200 OK
+		writer.WriteHeader(http.StatusOK)
+		writer.Write([]byte("{\"message\": \"Mitigating wrong cuts smells...\", \"graph\": " + graphRefactored + "}"))
+		return
+	}
+}
+
 
 // Refactor of Shared Libraries -> Handling of the route
 func sharedLibrariesRefactorHandler(writer http.ResponseWriter, request *http.Request) {

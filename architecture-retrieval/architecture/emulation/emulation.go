@@ -15,6 +15,48 @@ import (
 	"strings"
 	"time"
 )
+func RestartEmulationWithNewGraph(graph string) error {
+	// First, we need to stop the current emulation if there is one running.
+	// We can do this by killing any existing "docker compose watch" processes related to the current project.
+	// To find the project, we can parse the graph to get the system name, which corresponds to the folder name in /api/downloads.
+	graphStruct, err := graphparsing.ParseGraph(graph)
+	if err != nil {
+		return fmt.Errorf("error parsing json: %w", err)
+	}
+
+	// Clean repository name
+	repoNameRaw := graphStruct.System.Name
+	repoNameClean := strings.Map(func(r rune) rune {
+		if (r >= 'a' && r <= 'z') || (r >= 'A' && r <= 'Z') || (r >= '0' && r <= '9') {
+			return r
+		}
+		return -1
+	}, repoNameRaw)
+
+	graphStruct.System.Name = repoNameClean
+
+	basePath := filepath.Join("/api/downloads", repoNameClean)
+
+	// In case that there is some process "docker compose watch" running from a previous emulation, we should kill it before starting a new one.
+	err = CleanProjectLock(basePath)
+	if err != nil {
+		return fmt.Errorf("error cleaning project lock: %w", err)
+	}
+
+	// Also, we must shutdown the existent containers.
+	cmd := exec.Command("docker", "compose", "down", "--remove-orphans")
+	cmd.Dir = basePath
+	cmd.Run()
+
+	// Now we can start the new emulation with the new graph.
+	err = EmulateArchitecture(graph)
+	if err != nil {
+		return fmt.Errorf("error starting new emulation: %w", err)
+	}
+	return nil
+}
+
+
 
 // Given a graph in JSON format (stringified), this function will create a folder structure with files and a docker-compose.yml to emulate the architecture
 func EmulateArchitecture(graph string) error {
@@ -229,6 +271,7 @@ func EmulateArchitecture(graph string) error {
 
 	// 12. Build and start the Docker containers
 	log.Println("Building and starting Docker containers...")
+	log.Println("Base path for emulation: ", basePath)
     process, err := startDockerCompose(basePath)
     if err != nil {
         return fmt.Errorf("failed to start architecture: %w", err)
@@ -456,7 +499,7 @@ func insertIncomingCall(targetNode *graphparsing.Node, sourceNode *graphparsing.
 
 	// Get safe name for the endpoint (e.g., replace slashes with underscores)
 	safeName := strings.ReplaceAll(edge.Endpoint, "/", "_")
-	safeName = strings.Trim(safeName, "_") // Remove leading/trailing underscores
+	safeName = strings.ReplaceAll(safeName, "-", "") // Remove leading/trailing hyphens
 
 	// Manipulate the template content
 	content := string(data)
@@ -641,10 +684,11 @@ func findNodeByID(nodes []graphparsing.Node, id string) *graphparsing.Node {
 
 // Starts the architecture emulation by running the needed commands.
 func startDockerCompose(basePath string) (*exec.Cmd, error) {
+	fmt.Println("Reading docker-compose.yml from: ", basePath)
 	// 1. Run 'docker compose build'
 	buildCmd := exec.Command("docker", "compose", "build")
 	buildCmd.Dir = basePath
-	//buildCmd.Stdout = os.Stdout // Pipe output to see build progress
+	buildCmd.Stdout = os.Stdout // Pipe output to see build progress
 	buildCmd.Stderr = os.Stderr
 	if err := buildCmd.Run(); err != nil {
 		return nil, fmt.Errorf("docker compose build failed: %w", err)
@@ -654,7 +698,7 @@ func startDockerCompose(basePath string) (*exec.Cmd, error) {
 	// 2. Run 'docker compose watch' to start containers and wait for health
 	upCmd := exec.Command("docker", "compose", "watch") // --wait ensures it waits for healthy status if healthchecks are defined
 	upCmd.Dir = basePath
-	//upCmd.Stdout = os.Stdout
+	upCmd.Stdout = os.Stdout
 	upCmd.Stderr = os.Stderr
 	if err := upCmd.Start(); err != nil {
 		return nil, fmt.Errorf("docker compose up failed: %w", err)

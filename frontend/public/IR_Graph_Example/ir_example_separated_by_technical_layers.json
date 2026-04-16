@@ -1,0 +1,83 @@
+{
+  "nodes": [
+    {
+      "id": "1",
+      "label": "web-presentation-layer",
+      "type": "BasicNode",
+      "properties": {
+        "language": "html",
+        "orderOfMagnitudeOfFiles": "10^1",
+        "port": "80"
+      }
+    },
+    {
+      "id": "2",
+      "label": "business-logic-service",
+      "type": "BasicNode",
+      "properties": {
+        "language": "java",
+        "orderOfMagnitudeOfFiles": "10^3",
+        "port": "8080"
+      }
+    },
+    {
+      "id": "3",
+      "label": "data-persistence-proxy",
+      "type": "BasicNode",
+      "properties": {
+        "language": "python",
+        "orderOfMagnitudeOfFiles": "10^2",
+        "port": "5000"
+      }
+    },
+    {
+      "id": "4",
+      "label": "postgres-common-db",
+      "type": "DatabaseNode"
+    }
+  ],
+  "edges": [
+    {
+      "source": "1",
+      "target": "2",
+      "endpoint": "/api/v1/process-request",
+      "properties": {
+        "callDefinitionInSource": "http://business-logic-service:8080/api/v1/process-request",
+        "method": "POST"
+      }
+    },
+    {
+      "source": "2",
+      "target": "3",
+      "endpoint": "/query-resource",
+      "properties": {
+        "callDefinitionInSource": "http://data-persistence-proxy:5000/query-resource",
+        "method": "GET"
+      }
+    },
+    {
+      "source": "3",
+      "target": "4",
+      "endpoint": "/emulation_db",
+      "properties": {
+        "callDefinitionInSource": "jdbc:postgresql://postgres-common-db:5432/emulation_db",
+        "method": "SQL"
+      }
+    }
+  ],
+  "systemContext": {
+    "name": "GlobalShop E-Commerce",
+    "description": "A traditional three-tier e-commerce platform where services are partitioned by technical responsibility rather than business domain.",
+    "selfManagedLibraries": [
+      {
+        "name": "JSON-Parser-Lib",
+        "servicesUsingLibrary": [
+          "web-presentation-layer",
+          "business-logic-service",
+          "data-persistence-proxy"
+        ]
+      }
+    ],
+    "servicesSeparatedByBusinessDomain": false
+  }
+}

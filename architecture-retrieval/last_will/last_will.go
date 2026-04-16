@@ -4,53 +4,48 @@ import (
 	"os/signal"
 	"syscall"
 	"os/exec"
+	"path/filepath"
 	"log"
 )
 
 func SetupCleanupHandler() {
-	// Create a channel to listen for OS signals
-	c := make(chan os.Signal, 1)
-	
-	// We want to catch SIGTERM (Docker stop) and SIGINT (Ctrl+C)
-	signal.Notify(c, os.Interrupt, syscall.SIGTERM)
+    c := make(chan os.Signal, 1)
+    signal.Notify(c, os.Interrupt, syscall.SIGTERM)
 
-	go func() {
-		<-c // This blocks until a signal is received
-		log.Println("Shutdown signal received! Executing Last-Will...")
+    go func() {
+        <-c 
+        log.Println("Shutdown signal received! Cleaning up environment...")
 
-		// EXECUTE YOUR MAKEFILE
-		// Change the directory to where your Makefile is located
-		cmd := exec.Command("docker", "compose", "down") // or whatever your target is
-		
-		// Execute this command in every subdirectory of /api/downloads.
-		downloadsDir := "/api/downloads"
-		subdirs, err := os.ReadDir(downloadsDir)
-		if err != nil {
-			log.Printf("Failed to read downloads directory: %v", err)
-			os.Exit(1)
-		}
-		
-		for _, subdir := range subdirs {
-			if subdir.IsDir() {
-				cmd.Dir = downloadsDir + "/" + subdir.Name()
-				// For every repository, execute docker compose down to stop the containers and remove them
-				cmd.Stdout = os.Stdout
-				cmd.Stderr = os.Stderr
+        downloadsDir := "/api/downloads"
+        subdirs, err := os.ReadDir(downloadsDir)
+        if err != nil {
+            log.Printf("Failed to read downloads directory: %v", err)
+            os.Exit(1)
+        }
 
-				if err := cmd.Run(); err != nil {
-					log.Printf("Last-Will Makefile failed: %v", err)
-				} else {
-					log.Println("Last-Will Makefile executed successfully.")
-				}
-			}
-		}
-		//TODO: There are some services that aren't beings stopped
-		// due to the fact that they have active sub-threads.
-		// We should deal with that here.
+        for _, subdir := range subdirs {
+            if subdir.IsDir() {
+                dirPath := filepath.Join(downloadsDir, subdir.Name())
+                log.Printf("🧹 Cleaning up project: %s", subdir.Name())
 
-		
-		os.Exit(0) // Now we can safely exit
-	}()
+                // 1. "docker compose down" is the clean way. 
+                // Adding -v removes volumes, --remove-orphans catches stragglers.
+                downCmd := exec.Command("docker", "compose", "down", "-v", "--remove-orphans")
+                downCmd.Dir = dirPath
+                downCmd.Run() // We don't necessarily need to block for logs here
+
+                // 2. Force removal if 'down' failed to stop them (The "Brute Force" clause)
+                // We use sh -c here to handle the $(...) subshell
+                forceRm := exec.Command("sh", "-c", "docker rm -f $(docker ps -a -q) 2>/dev/null || true")
+                forceRm.Run()
+            }
+        }
+
+        // 3. Final Network Cleanup
+        log.Println("Removing shared network...")
+        exec.Command("docker", "network", "rm", "shared_network").Run()
+
+        log.Println("Cleanup finished. Goodbye!")
+        os.Exit(0) 
+    }()
 }
-
-
