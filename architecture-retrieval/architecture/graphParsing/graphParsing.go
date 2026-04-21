@@ -3,6 +3,7 @@ package graphparsing
 import (
 	"encoding/json"
 	"fmt"
+	"strings"
 )
 type Graph struct{
 	Nodes []Node `json:"nodes"`
@@ -136,4 +137,50 @@ func RemoveEdge(edges []Edge, edgeToRemove Edge) []Edge {
 		}
 	}
 	return edges
+}
+
+func MergeNodeIntoAnother(graph Graph, nodeToBeMerged Node, nodeToReceive Node) Graph {
+	
+	// Replace all edges that point to nodeToBeMerged with nodeToReceive
+	for i, edge := range graph.Edges {
+		if edge.Source == nodeToBeMerged.Id {
+			graph.Edges[i].Source = nodeToReceive.Id
+		}
+		if edge.Target == nodeToBeMerged.Id {
+			graph.Edges[i].Target = nodeToReceive.Id
+			// If target is nodeToBeMerged, we need to update the call definition in source to reflect the new source node.
+			graph.Edges[i].Properties.CallDefinitionInSource = strings.ReplaceAll(graph.Edges[i].Properties.CallDefinitionInSource, nodeToBeMerged.Label, nodeToReceive.Label)
+		}
+	}
+	
+	// Remove the merged node from the graph
+	var updatedNodes []Node
+	for _, node := range graph.Nodes {
+		if node.Id != nodeToBeMerged.Id {
+			updatedNodes = append(updatedNodes, node)
+		}
+	}
+	graph.Nodes = updatedNodes
+
+	// Remove the node from potential self-managed libraries in the system context
+	for i, library := range graph.System.SelfManagedLibraries {
+		var updatedServices []string
+		for _, service := range library.ServicesUsingLibrary {
+			if service != nodeToBeMerged.Label {
+				updatedServices = append(updatedServices, service)
+			}
+		}
+		graph.System.SelfManagedLibraries[i].ServicesUsingLibrary = updatedServices
+	}
+	
+	
+	return graph
+}
+
+func SanitizeName(name string) string {
+	// Remove spaces and special characters from the name to create a valid identifier
+	sanitized := strings.ReplaceAll(name, " ", "")
+	sanitized = strings.ReplaceAll(sanitized, "-", "")
+	sanitized = strings.ReplaceAll(sanitized, "_", "")
+	return sanitized
 }

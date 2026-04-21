@@ -14,6 +14,7 @@ func GetMicroserviceGreedy(graph string) ([]string, error){
 		return nil, err
 	}
 	
+	// Only detects if HTML.
 	var microserviceGreedy []string
 	for _, node := range graphStruct.Nodes {
 		exponent := graphparsing.GetOrderOfMagnitudeOfFiles(node)

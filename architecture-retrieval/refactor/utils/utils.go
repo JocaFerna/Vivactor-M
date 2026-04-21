@@ -4,6 +4,7 @@ import (
 	graphparsing "architecture-retrieval/architecture/graphParsing"
 	"bufio"
 	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
 	"log"
@@ -15,6 +16,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/compose-spec/compose-go/v2/cli"
 	"gopkg.in/yaml.v3"
 )
 
@@ -889,6 +891,23 @@ func CreateBasicFileFromNode(node graphparsing.Node, basePath string) error {
 	return err
 }
 
+func GetPortFromNode(node graphparsing.Node) (int, error) {
+	var port int
+	if node.Properties.Port != "" {
+		port, _ = strconv.Atoi(node.Properties.Port)
+	} else if node.Type == "DatabaseNode" {
+		port = 5432
+	} else if node.Properties.Language == "html" {
+		port = 80
+	} else {
+		port = 8080
+	}
+	if port <= 0 || port > 65535 {
+		return 0, fmt.Errorf("Invalid port %d for service %s\n", port, node.Label)
+	}
+	return port, nil
+}
+
 
 
 func HandleCallFromNode(sourceNode graphparsing.Node, targetNode graphparsing.Node, edge graphparsing.Edge, basePath string) error {
@@ -1088,4 +1107,176 @@ func loadAndProcessTemplate(node graphparsing.Node, lang string) (string, string
 		content = strings.ReplaceAll(content, "{{PORT}}", "8080") // Default port if not specified
 	}
 	return ext, content, nil
+}
+
+func TransferFilesIntoAnotherService(sourceNode graphparsing.Node, targetNode graphparsing.Node, basePath string) error {
+	sourceDir := filepath.Join(basePath, SanitizeName(sourceNode.Label))
+	targetDir := filepath.Join(basePath, SanitizeName(targetNode.Label))
+
+	// Ensure target directory exists
+	if _, err := os.Stat(targetDir); os.IsNotExist(err) {
+		err := os.Mkdir(targetDir, 0755)
+		if err != nil {
+			return fmt.Errorf("error creating target service directory: %v", err)
+		}
+	}
+
+	// Walk through source directory and copy files to target directory
+	err := filepath.Walk(sourceDir, func(path string, info os.FileInfo, err error) error {
+		if err != nil {
+			return err
+		}
+		if !info.IsDir() {
+			relPath, err := filepath.Rel(sourceDir, path)
+			if err != nil {
+				return err
+			}
+			targetPath := filepath.Join(targetDir, relPath)
+
+			input, err := os.ReadFile(path)
+			if err != nil {
+				return fmt.Errorf("error reading file %s: %v", path, err)
+			}
+
+			err = os.WriteFile(targetPath, input, 0644)
+			if err != nil {
+				return fmt.Errorf("error writing file %s: %v", targetPath, err)
+			}
+		}
+		return nil
+	})
+	if err != nil {
+		return fmt.Errorf("error transferring files: %v", err)
+	}
+
+	return nil
+}
+
+func RedirectCallsFromOneServiceToAnother(sourceNode graphparsing.Node, targetNode graphparsing.Node, graphStruct graphparsing.Graph, basePath string) error {
+	// Get port from target node to update call definitions
+	targetPort, err := GetPortFromNode(targetNode)
+	if err != nil {
+		return fmt.Errorf("error getting port from target node: %v", err)
+	}
+
+	// Get port from source node to identify which calls to update
+	sourcePort, err := GetPortFromNode(sourceNode)
+	if err != nil {
+		return fmt.Errorf("error getting port from source node: %v", err)
+	}
+	
+	// Update outgoing calls to sourceNode to point to targetNode instead
+	for _, edge := range graphStruct.Edges {
+		if edge.Target == sourceNode.Id {
+			
+			changingNode, err := graphparsing.GetNodeById(graphStruct, edge.Source)
+			if err != nil {
+				log.Printf("Error finding source node for edge: %v", err)
+				continue
+			}
+			// Get the source node main file
+			sourceNodeMainFile := filepath.Join(basePath, SanitizeName(changingNode.Label), "main"+getFileExtension(changingNode.Properties.Language))
+
+			// Read the main file content
+			mainContent, err := os.ReadFile(sourceNodeMainFile)
+			if err != nil {
+				log.Printf("Error reading main file for node %s: %v", changingNode.Label, err)
+				continue
+			}
+
+			// Replace occurrences of sourceNode's label with targetNode's label in the main file
+			updatedContent := strings.ReplaceAll(string(mainContent), SanitizeName(sourceNode.Label), SanitizeName(targetNode.Label))
+		
+			updatedContent = strings.ReplaceAll(updatedContent, fmt.Sprintf("%s:%d", SanitizeName(targetNode.Label), sourcePort), fmt.Sprintf("%s:%d", SanitizeName(targetNode.Label), targetPort))
+			
+			// Write the updated content back to the main file
+			err = os.WriteFile(sourceNodeMainFile, []byte(updatedContent), 0644)
+			if err != nil {
+				log.Printf("Error writing updated main file for node %s: %v", changingNode.Label, err)
+				continue
+			}
+		}
+	}
+	return nil
+}
+
+func RemoveService(node graphparsing.Node, graphStruct graphparsing.Graph, basePath string) error {
+	// Remove the service directory and its contents
+	serviceDir := filepath.Join(basePath, SanitizeName(node.Label))
+	// The service we want to remove
+	serviceToRemove := SanitizeName(node.Label)
+	// Stop and remove the container
+	cmd := exec.Command("docker","compose","rm","-s","-f", fmt.Sprintf("%s",serviceToRemove))
+	cmd.Dir = basePath
+	cmd.Stderr = os.Stderr
+	cmd.Stdout = os.Stdout
+	if err := cmd.Run(); err != nil {
+		log.Printf("Error removing container for service %s: %v", serviceToRemove, err)
+		return err
+	} else {
+		log.Printf("Successfully removed container for service %s", serviceToRemove)
+	}
+
+	// Remove the service entry from the docker-compose.yml file
+	ctx := context.Background()
+	
+	
+	composeFilePath := filepath.Join(basePath, "docker-compose.yml")
+	
+	// 1. Define Project Options pointing to your existing file
+	options, err := cli.NewProjectOptions(
+		[]string{composeFilePath}, // Path to existing file
+	)
+	if err != nil {
+		log.Fatalf("Failed to create options: %v", err)
+	}
+
+	// 2. Load the Project struct
+	project, err := cli.ProjectFromOptions(ctx, options)
+	if err != nil {
+		log.Fatalf("Failed to load existing compose file: %v", err)
+	}
+
+	// 3. Delete the service
+	if _, ok := project.Services[serviceToRemove]; ok {
+		delete(project.Services, serviceToRemove)
+		fmt.Printf("Successfully removed service: %s\n", serviceToRemove)
+	} else {
+		fmt.Printf("Service %s not found in existing file\n", serviceToRemove)
+	}
+	err = os.RemoveAll(serviceDir)
+	if err != nil {
+		return fmt.Errorf("error removing service directory: %v", err)
+	}
+	// 4. Save the modified project back to disk
+	// We use yaml.v3 because the Project struct is compatible with it
+	out, err := yaml.Marshal(project)
+	if err != nil {
+		log.Fatalf("Failed to marshal project: %v", err)
+	}
+
+	err = os.WriteFile(composeFilePath, out, 0644)
+	if err != nil {
+		log.Fatalf("Failed to write file: %v", err)
+	}
+
+	
+	return nil
+}
+
+
+
+func getFileExtension(lang string) string {
+	extensions := map[string]string{
+		"java":       ".java",
+		"python":     ".py",
+		"javascript": ".js",
+		"html":       ".html",
+		"golang":     ".go",
+	}
+	
+	if ext, ok := extensions[strings.ToLower(lang)]; ok {
+		return ext
+	}
+	return ".txt"
 }

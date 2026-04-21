@@ -83,7 +83,6 @@ func RefactorToBusinessCapabilities(inputGraphJson string) (string, error) {
 
 	// --- RETRY LOGIC START ---
 	maxRetries := 30
-	baseDelay := 5 * time.Second
 
 	for i := 0; i < maxRetries; i++ {
 		result, err := client.Models.GenerateContent(ctx, modelID, genai.Text(prompt), config)
@@ -92,17 +91,14 @@ func RefactorToBusinessCapabilities(inputGraphJson string) (string, error) {
 			if len(result.Candidates) == 0 {
 				return "", fmt.Errorf("no refactoring generated")
 			}
-			return result.Text(), nil
+			return result.Text(), nil 
 		}
 
 		// Check if it's a 503/High Demand error
 		if strings.Contains(err.Error(), "503") || strings.Contains(err.Error(), "UNAVAILABLE") {
-			// Exponential backoff: 2s, 4s, 8s, 16s...
-			delay := baseDelay * time.Duration(1<<i) 
-			log.Printf("Gemini is busy (503). Retrying in %v... (Attempt %d/%d)", delay, i+1, maxRetries)
-			
-			time.Sleep(delay)
-			continue
+			// If error, just forget it.
+			log.Printf("Gemini is currently under high demand - 503 error. Will not try again.")
+			break
 		}
 
 		//If its RESOURCE_EXHAUSTED, we can also retry, but with a fixed delay of 1 minute, as it seems to be more related to quota limits than to momentary high demand.
@@ -114,7 +110,7 @@ func RefactorToBusinessCapabilities(inputGraphJson string) (string, error) {
 	}
 	// --- RETRY LOGIC END ---
 
-	return "", fmt.Errorf("failed to refactor after %d attempts due to high demand", maxRetries)
+	return "", fmt.Errorf("failed to refactor due to high demand")
 }
 
 func ptr[T any](v T) *T {

@@ -60,6 +60,25 @@ const refactorSoftware = async (repoUrl, refactorType, selectedApis) => {
                 break;
             case "innapropriateServiceIntimacity":
             case "microserviceGreedy":
+                console.log("Initiating refactor for microservice greedy smells...");
+                const microserviceGreedyToRefactor = Object.keys(selectedApis).filter(api => selectedApis[api]);
+                params.append('greedyMicroservices', JSON.stringify(microserviceGreedyToRefactor));
+
+                fullUrl = `${API_BASE}/refactor/mitigateMicroserviceGreedySmells?${params.toString()}`;
+                response = await fetch(fullUrl);
+                
+                if (!response.ok) throw new Error(`Server error: ${response.status}`);
+                
+                result = await response.json();
+                console.log("Repository refactored successfully:", result);
+
+                useGlobalStore.setState({ 
+                    refactoringOfMicroserviceGreedy: false, 
+                    refactoringOfMicroserviceGreedyJSON: null, 
+                    isArchitectureRunning: true,           
+                    graphData: result.graph ? result.graph : currentState.graphData 
+                });
+                break;
             case "sharedLibraries":
                 console.log("Initiating refactor for shared libraries...");
                 const sharedLibrariesToRefactor = Object.keys(selectedApis).filter(api => selectedApis[api]);

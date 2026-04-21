@@ -92,7 +92,6 @@ func AssertWrongCutsSmell(systemName string, nodes []graphparsing.Node) (string,
 
 	// --- RETRY LOGIC START ---
 	maxRetries := 30
-	baseDelay := 5 * time.Second
 
 	for i := 0; i < maxRetries; i++ {
 		result, err := client.Models.GenerateContent(ctx, modelID, genai.Text(prompt), config)
@@ -106,12 +105,9 @@ func AssertWrongCutsSmell(systemName string, nodes []graphparsing.Node) (string,
 
 		// Check if it's a 503/High Demand error
 		if strings.Contains(err.Error(), "503") || strings.Contains(err.Error(), "UNAVAILABLE") {
-			// Exponential backoff: 2s, 4s, 8s, 16s...
-			delay := baseDelay * time.Duration(1<<i) 
-			log.Printf("Gemini is busy (503). Retrying in %v... (Attempt %d/%d)", delay, i+1, maxRetries)
-			
-			time.Sleep(delay)
-			continue
+			// If error, just forget it.
+			log.Printf("Gemini is currently under high demand - 503 error. Will not try again.")
+			break
 		}
 
 		//If its RESOURCE_EXHAUSTED, we can also retry, but with a fixed delay of 1 minute, as it seems to be more related to quota limits than to momentary high demand.
@@ -126,7 +122,7 @@ func AssertWrongCutsSmell(systemName string, nodes []graphparsing.Node) (string,
 	}
 	// --- RETRY LOGIC END ---
 
-	return "", fmt.Errorf("failed to assert wrong cuts smell after %d attempts due to high demand", maxRetries)
+	return "", fmt.Errorf("failed to assert wrong cuts smell due to high demand")
 }
 
 // Helper to handle pointer-based config values

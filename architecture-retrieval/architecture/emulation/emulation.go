@@ -688,7 +688,7 @@ func startDockerCompose(basePath string) (*exec.Cmd, error) {
 	// 1. Run 'docker compose build'
 	buildCmd := exec.Command("docker", "compose", "build")
 	buildCmd.Dir = basePath
-	buildCmd.Stdout = os.Stdout // Pipe output to see build progress
+	//buildCmd.Stdout = os.Stdout // Pipe output to see build progress
 	buildCmd.Stderr = os.Stderr
 	if err := buildCmd.Run(); err != nil {
 		return nil, fmt.Errorf("docker compose build failed: %w", err)
@@ -698,7 +698,7 @@ func startDockerCompose(basePath string) (*exec.Cmd, error) {
 	// 2. Run 'docker compose watch' to start containers and wait for health
 	upCmd := exec.Command("docker", "compose", "watch") // --wait ensures it waits for healthy status if healthchecks are defined
 	upCmd.Dir = basePath
-	upCmd.Stdout = os.Stdout
+	//upCmd.Stdout = os.Stdout
 	upCmd.Stderr = os.Stderr
 	if err := upCmd.Start(); err != nil {
 		return nil, fmt.Errorf("docker compose up failed: %w", err)

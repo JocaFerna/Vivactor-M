@@ -99,6 +99,24 @@
                 "callDefinitionInSource":"mongodb://database-common:27017/mydb",
                 "method": "SQL"
             }
+        },
+        {
+            "source": "2",
+            "target": "4",
+            "endpoint": "/some",
+            "properties": {
+                "callDefinitionInSource":"http://shipping-service:8080/some",
+                "method": "GET"
+            }
+        },
+        {
+            "source": "2",
+            "target": "4",
+            "endpoint": "/some-other",
+            "properties": {
+                "callDefinitionInSource":"http://shipping-service:8080/some-other",
+                "method": "POST"
+            }
         }
     ],
     "systemContext": {

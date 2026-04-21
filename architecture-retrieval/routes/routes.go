@@ -9,6 +9,7 @@ import (
 	sharedPersistencyRefactor "architecture-retrieval/refactor/sharedPersistency"
 	sharedLibrariesRefactor "architecture-retrieval/refactor/sharedLibraries"
 	wrongCutsRefactor "architecture-retrieval/refactor/wrongCuts"
+	microserviceGreedyRefactor "architecture-retrieval/refactor/microserviceGreedy"
 
 
 	"architecture-retrieval/smells/apiNonVersioned"
@@ -66,6 +67,7 @@ func Register() {
 		"/refactor/mitigateSharedPersistencySmells": sharedPersistencyRefactorHandler,
 		"/refactor/mitigateSharedLibrariesSmells": sharedLibrariesRefactorHandler,
 		"/refactor/mitigateWrongCutsSmells": wrongCutsRefactorHandler,
+		"/refactor/mitigateMicroserviceGreedySmells": microserviceGreedyRefactorHandler,
 	}
 
 	for route, handler := range routes {
@@ -77,6 +79,31 @@ func Register() {
 
 func home(writer http.ResponseWriter, request *http.Request) {
 	fmt.Fprintf(writer, "{\"message\": \"Hello World\"}")
+}
+
+// Refactor of Microservice Greedy -> Handling of the route
+func microserviceGreedyRefactorHandler(writer http.ResponseWriter, request *http.Request) {
+	log.Println("Received mitigate microservice greedy smells request")
+	graph := request.URL.Query().Get("graph")
+	greedyMicroservices := request.URL.Query().Get("greedyMicroservices")
+	// Remove [ and ] from the greedyMicroservices string
+	greedyMicroservices = strings.TrimPrefix(greedyMicroservices, "[")
+	greedyMicroservices = strings.TrimSuffix(greedyMicroservices, "]")
+	greedyMicroservicesList := strings.Split(greedyMicroservices, ",")
+	fmt.Printf("Greedy Microservices: %v\n", greedyMicroservicesList)
+
+	graphRefactored, err := microserviceGreedyRefactor.RefactorMicroserviceGreedy(graph, greedyMicroservicesList)
+	if err != nil {
+		log.Printf("Error mitigating microservice greedy smells: %s\n", err.Error())
+		writer.WriteHeader(http.StatusInternalServerError)
+		writer.Write([]byte("{\"message\": \"Error mitigating microservice greedy smells\"}"))
+		return
+	} else {
+		// Return 200 OK
+		writer.WriteHeader(http.StatusOK)
+		writer.Write([]byte("{\"message\": \"Mitigating microservice greedy smells...\", \"graph\": " + graphRefactored + "}"))
+		return
+	}
 }
 
 // Refactor of Wrong Cuts -> Handling of the route
@@ -259,11 +286,10 @@ func smellsHandler(writer http.ResponseWriter, request *http.Request){	log.Print
 
 	// Wrong Cuts
 	wrongCutsSmells, err := wrongCuts.GetWrongCuts(graph)
+	wrongCutsNA := false
+	// This case may be due to high demand on Gemini API, so we can just say that is N/A.
 	if err != nil {
-		log.Printf("Error detecting Wrong Cuts smells: %s\n", err.Error())
-		writer.WriteHeader(http.StatusInternalServerError)
-		writer.Write([]byte("{\"message\": \"Error detecting Wrong Cuts smells\"}"))
-		return
+		wrongCutsNA = true
 	}
 
 	// Shared Persistency
@@ -353,8 +379,11 @@ func smellsHandler(writer http.ResponseWriter, request *http.Request){	log.Print
 	}
 	response += "],"
 	response += "\"wrongCuts\": "
-	response += fmt.Sprintf("%t", wrongCutsSmells)
-	
+	if wrongCutsNA {
+		response += "\"N/A\""
+	} else {
+		response += fmt.Sprintf("%t", wrongCutsSmells)
+	}
 	response += ","
 	response += "\"sharedPersistency\": ["
 	for i, smell := range sharedPersistencySmells {
