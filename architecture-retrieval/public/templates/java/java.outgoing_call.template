@@ -1,3 +1,4 @@
+// BEGIN DB CALL TO {{TARGET_LABEL}}
 scheduler.scheduleAtFixedRate(() -> {
     try {
         System.out.println("[{{SERVICE_NAME}}] Attempting call to {{TARGET_LABEL}}...");
@@ -14,3 +15,4 @@ scheduler.scheduleAtFixedRate(() -> {
         System.out.println("[{{SERVICE_NAME}}] Connection to {{TARGET_LABEL}} failed: " + e.getMessage());
     }
 }, 0, 10, TimeUnit.SECONDS);
+// END DB CALL TO {{TARGET_LABEL}}

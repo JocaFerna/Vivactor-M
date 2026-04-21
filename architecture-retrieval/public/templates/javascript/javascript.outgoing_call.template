@@ -1,4 +1,4 @@
-
+// BEGIN DB CALL TO {{TARGET_LABEL}}
 setInterval(() => {
     console.log(`[{{SERVICE_NAME}}] Attempting call to {{TARGET_LABEL}}...`);
     
@@ -9,3 +9,4 @@ setInterval(() => {
     });
     
 }, 10000); // 10,000 milliseconds = 10 seconds
+// END DB CALL TO {{TARGET_LABEL}}

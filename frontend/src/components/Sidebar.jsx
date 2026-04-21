@@ -1,7 +1,7 @@
 import React, { useState, useMemo } from 'react';
 import { 
   ChevronLeft, Upload, FileText, Play, Waypoints, 
-  Link, PackageSearch, Boxes, Repeat, Zap 
+  Link, PackageSearch, Boxes, Repeat, Zap, Computer
 } from 'lucide-react';
 import { useGlobalStore } from '../store/useGlobalStore';
 
@@ -204,10 +204,10 @@ const Sidebar = () => {
           {/* Secondary Items */}
           <NavItem 
             gap={activeRefactors.length > 0 ? true : false}
-            icon={<FileText size={20} />} 
-            title="Thesis Docs" 
+            icon={<Computer size={20} />} 
+            title="GitHub Repository" 
             open={open} 
-            onClick={() => window.open('https://your-docs-link.com', '_blank')} 
+            onClick={() => window.open('https://github.com/JocaFerna/Vivactor-M', '_blank')} 
           />
         </ul>
       </div>

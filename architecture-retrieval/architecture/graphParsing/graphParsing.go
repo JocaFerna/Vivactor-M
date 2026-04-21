@@ -143,13 +143,18 @@ func MergeNodeIntoAnother(graph Graph, nodeToBeMerged Node, nodeToReceive Node) 
 	
 	// Replace all edges that point to nodeToBeMerged with nodeToReceive
 	for i, edge := range graph.Edges {
-		if edge.Source == nodeToBeMerged.Id {
+		if edge.Source == nodeToBeMerged.Id && edge.Target != nodeToReceive.Id {
 			graph.Edges[i].Source = nodeToReceive.Id
 		}
-		if edge.Target == nodeToBeMerged.Id {
+		if edge.Target == nodeToBeMerged.Id && edge.Source != nodeToReceive.Id {
 			graph.Edges[i].Target = nodeToReceive.Id
 			// If target is nodeToBeMerged, we need to update the call definition in source to reflect the new source node.
 			graph.Edges[i].Properties.CallDefinitionInSource = strings.ReplaceAll(graph.Edges[i].Properties.CallDefinitionInSource, nodeToBeMerged.Label, nodeToReceive.Label)
+		}
+		// Also, we need to delete edges from nodeToBeMerged to nodeToReceive to avoid self-loop after merging. And vice-versa.
+		if (edge.Source == nodeToBeMerged.Id && edge.Target == nodeToReceive.Id) || (edge.Source == nodeToReceive.Id && edge.Target == nodeToBeMerged.Id) {
+			graph.Edges = RemoveEdge(graph.Edges, edge)
+			i-- // Decrement i to account for the removed edge
 		}
 	}
 	

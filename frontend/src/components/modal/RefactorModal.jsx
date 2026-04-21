@@ -70,7 +70,7 @@ const refactorSoftware = async (repoUrl, refactorType, selectedApis) => {
                 if (!response.ok) throw new Error(`Server error: ${response.status}`);
                 
                 result = await response.json();
-                console.log("Repository refactored successfully:", result);
+                console.log("Repository refactored successfully of microservice greedy smells:", result);
 
                 useGlobalStore.setState({ 
                     refactoringOfMicroserviceGreedy: false, 
@@ -135,6 +135,23 @@ const refactorSoftware = async (repoUrl, refactorType, selectedApis) => {
                 });
                 break;
             case "tooManyStandards":
+                console.log("Initiating refactor for too many standards...");
+                const tooManyStandardsToRefactor = Object.keys(selectedApis).filter(api => selectedApis[api]);
+                params.append('tooManyStandardsSmells', JSON.stringify(tooManyStandardsToRefactor));
+                
+                fullUrl = `${API_BASE}/refactor/mitigateTooManyStandardsSmells?${params.toString()}`;
+                response = await fetch(fullUrl);
+                if (!response.ok) throw new Error(`Server error: ${response.status}`);
+                result = await response.json();
+                console.log("Repository refactored successfully:", result);
+                
+                useGlobalStore.setState({
+                    refactoringOfTooManyStandards: false,
+                    refactoringOfTooManyStandardsJSON: null,
+                    isArchitectureRunning: true,
+                    graphData: result.graph ? result.graph : currentState.graphData
+                });
+                break;
             case "noAPIGateway":
                 console.log(`Refactor for ${refactorType} is not implemented yet.`);
                 break;
@@ -316,7 +333,13 @@ const RefactorModal = ({ isOpen, onClose, typeOfRefactor }) => {
                                             <p className="text-xs text-slate-500 italic">
                                                No objects detected for this smell, due to the nature of the smell.
                                             </p>
-                                        ) : (
+                                        ) :
+                                        typeOfRefactor === "tooManyStandards" ? (
+                                        <p className="text-xs text-slate-500 italic">
+                                               No objects detected for this smell, due to the nature of the smell.
+                                            </p>
+                                        ) :
+                                        (
                                             <p className="text-xs text-slate-500 italic">No objects detected for this smell.</p>
                                         )
                                     )}

@@ -10,6 +10,7 @@ import (
 	sharedLibrariesRefactor "architecture-retrieval/refactor/sharedLibraries"
 	wrongCutsRefactor "architecture-retrieval/refactor/wrongCuts"
 	microserviceGreedyRefactor "architecture-retrieval/refactor/microserviceGreedy"
+	tooManyStandardsRefactor "architecture-retrieval/refactor/tooManyStandards"
 
 
 	"architecture-retrieval/smells/apiNonVersioned"
@@ -68,6 +69,7 @@ func Register() {
 		"/refactor/mitigateSharedLibrariesSmells": sharedLibrariesRefactorHandler,
 		"/refactor/mitigateWrongCutsSmells": wrongCutsRefactorHandler,
 		"/refactor/mitigateMicroserviceGreedySmells": microserviceGreedyRefactorHandler,
+		"/refactor/mitigateTooManyStandardsSmells": tooManyStandardsRefactorHandler,
 	}
 
 	for route, handler := range routes {
@@ -79,6 +81,24 @@ func Register() {
 
 func home(writer http.ResponseWriter, request *http.Request) {
 	fmt.Fprintf(writer, "{\"message\": \"Hello World\"}")
+}
+
+// Refactor of Too Many Standards -> Handling of the route
+func tooManyStandardsRefactorHandler(writer http.ResponseWriter, request *http.Request) {
+	log.Println("Received mitigate too many standards smells request")
+	graph := request.URL.Query().Get("graph")
+	graphRefactored, err := tooManyStandardsRefactor.MitigateTooManyStandardsSmell(graph)
+	if err != nil {
+		log.Printf("Error mitigating too many standards smells: %s\n", err.Error())
+		writer.WriteHeader(http.StatusInternalServerError)
+		writer.Write([]byte("{\"message\": \"Error mitigating too many standards smells\"}"))
+		return
+	} else {
+		// Return 200 OK
+		writer.WriteHeader(http.StatusOK)
+		writer.Write([]byte("{\"message\": \"Mitigating too many standards smells...\", \"graph\": " + graphRefactored + "}"))
+		return
+	}
 }
 
 // Refactor of Microservice Greedy -> Handling of the route

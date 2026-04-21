@@ -17,6 +17,7 @@ import (
 	"time"
 
 	"github.com/compose-spec/compose-go/v2/cli"
+	"github.com/compose-spec/compose-go/v2/types"
 	"gopkg.in/yaml.v3"
 )
 
@@ -753,142 +754,124 @@ func CreateBasicFileFromNode(node graphparsing.Node, basePath string) error {
 		"html":       ".html",
 		"golang":     ".go",
 	}
-	var servicesYaml strings.Builder
-	
-	ext, ok := extensions[strings.ToLower(node.Properties.Language)]
+
+	lang := strings.ToLower(node.Properties.Language)
+	ext, ok := extensions[lang]
 	if !ok {
-		return fmt.Errorf("unsupported language: %s", node.Properties.Language)
-	}
-	
-	node.Label = SanitizeName(node.Label)
-	serviceDir := filepath.Join(basePath, node.Label)
-	if _, err := os.Stat(serviceDir); os.IsNotExist(err) {
-		err := os.Mkdir(serviceDir, 0755)
-		if err != nil {
-			return fmt.Errorf("error creating service directory: %v", err)
-		}
+		return fmt.Errorf("unsupported language: %s", lang)
 	}
 
-	// 1. Load template content for the node's language
-	ext, content, err := loadAndProcessTemplate(node, strings.ToLower(node.Properties.Language))
+	// 1. Prepare Directory Structure
+	node.Label = SanitizeName(node.Label)
+	serviceDir := filepath.Join(basePath, node.Label)
+	if err := os.MkdirAll(serviceDir, 0755); err != nil {
+		return fmt.Errorf("error creating service directory: %v", err)
+	}
+
+	// 2. Load and write application files
+	_, content, err := loadAndProcessTemplate(node, lang)
 	if err != nil {
 		return fmt.Errorf("error loading template: %v", err)
 	}
+	if err := os.WriteFile(filepath.Join(serviceDir, "main"+ext), []byte(content), 0644); err != nil {
+		return err
+	}
 
-	//2. Write the main entry file
-	mainFilePath := filepath.Join(serviceDir, "main"+ext)
-	err = os.WriteFile(mainFilePath, []byte(content), 0644)
-
-	//3. Generate magnitude files.
 	generateMagnitudeFiles(serviceDir, node.Properties.OrderOfMagnitudeOfFiles, ext)
 
+	// 3. Load and write Dockerfile
+	dockerContent, err := loadDockerfileTemplate(lang, node.Label)
+	if err == nil {
+		os.WriteFile(filepath.Join(serviceDir, "Dockerfile"), []byte(dockerContent), 0644)
+	}
 
-	//4. Load and write Dockerfile template
-	dockerContent, err := loadDockerfileTemplate(strings.ToLower(node.Properties.Language), node.Label)
+	// 4. Structural YAML Manipulation with Compose-Go CLI
+	composeFilePath := filepath.Join(basePath, "docker-compose.yml")
+	ctx := context.Background()
+
+	options, err := cli.NewProjectOptions([]string{composeFilePath})
 	if err != nil {
-		log.Printf("Warning: Dockerfile template not found for %s. Skipping Dockerfile creation.", node.Properties.Language)
-	} else {
-		dockerFilePath := filepath.Join(serviceDir, "Dockerfile")
-		os.WriteFile(dockerFilePath, []byte(dockerContent), 0644)
+		return fmt.Errorf("failed to create compose options: %w", err)
 	}
-	// 5. Build the docker compose entry for this node
-	servicesYaml.WriteString(fmt.Sprintf("  %s:\n", node.Label))
-	servicesYaml.WriteString(fmt.Sprintf("    build: ./%s\n", node.Label))
-	servicesYaml.WriteString("    networks:\n")
-	servicesYaml.WriteString("      - shared_network\n")
 
-	// Optional: Add environment variables for edges
-	if node.Properties.Language == "python" || node.Properties.Language == "javascript" {
-		servicesYaml.WriteString("    environment:\n")
-		servicesYaml.WriteString(fmt.Sprintf("      - SERVICE_NAME=%s\n", node.Label))
+	project, err := cli.ProjectFromOptions(ctx, options)
+	if err != nil {
+		return fmt.Errorf("failed to load existing project: %w", err)
 	}
+
+	// 5. Determine Port and Watch Settings
 	var port int
 	if node.Properties.Port != "" {
 		port, _ = strconv.Atoi(node.Properties.Port)
-	} else if node.Type == "DatabaseNode" {
-		port = 5432
-	} else if node.Properties.Language == "html" {
-		port = 80
 	} else {
-		port = 8080
+		port = 8080 
 	}
 
-	// Check if port is valid, otherwise skip healthcheck
-	if port <= 0 || port > 65535 {
-		return fmt.Errorf("Invalid port %d for service %s, skipping healthcheck\n", port, node.Label)
-	}
-
-	//TODO: Lacks checkPortMatch.
-
-	servicesYaml.WriteString("    healthcheck:\n")
-	servicesYaml.WriteString(fmt.Sprintf("      test: [\"CMD-SHELL\", \"nc -z localhost %d || exit 1\"]\n", port))
-	servicesYaml.WriteString("      interval: 5s\n")
-	servicesYaml.WriteString("      timeout: 5s\n")
-	servicesYaml.WriteString("      retries: 5\n")
-
-	// 5.5. Generate the Docker Compose "Watch" block (develop)
-	lang := strings.ToLower(node.Properties.Language)
-	var watchAction, watchTarget, watchIgnore string
+	// FIX: Use the specific types.WatchAction type
+	var watchAction types.WatchAction
+	var watchTarget string
+	var watchIgnore []string
 
 	switch lang {
-		case "html":
-			watchAction = "sync"
-			watchTarget = "/usr/share/nginx/html"
-		case "python":
-			watchAction = "sync+restart"
-			watchTarget = "/app"
-			// Standardized indentation: 12 spaces for each list item
-			watchIgnore = "            - \"**/__pycache__/**\"\n            - \"**/.pytest_cache/**\""
-		case "javascript", "js":
-			watchAction = "sync+restart"
-			watchTarget = "/app"
-			watchIgnore = "            - \"**/node_modules/**\""
-		case "java":
-			watchAction = "sync+restart"
-			watchTarget = "/app"
-		default:
-			watchAction = "rebuild"
-			watchTarget = "/app"
+	case "html":
+		watchAction = types.WatchActionSync
+		watchTarget = "/usr/share/nginx/html"
+	case "python":
+		watchAction = types.WatchActionSyncRestart
+		watchTarget = "/app"
+		watchIgnore = []string{"**/__pycache__/**"}
+	case "javascript", "js":
+		watchAction = types.WatchActionSyncRestart
+		watchTarget = "/app"
+		watchIgnore = []string{"**/node_modules/**"}
+	default:
+		watchAction = types.WatchActionRebuild
+		watchTarget = "/app"
 	}
 
-	// Write the develop/watch section to the YAML buffer
-	servicesYaml.WriteString("    develop:\n")
-	servicesYaml.WriteString("      watch:\n")
-	servicesYaml.WriteString(fmt.Sprintf("        - action: %s\n", watchAction))
-	servicesYaml.WriteString(fmt.Sprintf("          path: ./%s\n", node.Label))
-	servicesYaml.WriteString(fmt.Sprintf("          target: %s\n", watchTarget))
-
-	if watchIgnore != "" {
-		// We write the key 'ignore:' and then a newline before pasting the items
-		servicesYaml.WriteString("          ignore:\n")
-		servicesYaml.WriteString(fmt.Sprintf("%s\n", watchIgnore))
+	// 6. Build the ServiceConfig Struct
+	newService := types.ServiceConfig{
+		Name:  node.Label,
+		Build: &types.BuildConfig{Context: "./" + node.Label},
+		Networks: map[string]*types.ServiceNetworkConfig{
+			"shared_network": {},
+		},
+		HealthCheck: &types.HealthCheckConfig{
+			Test:     []string{"CMD-SHELL", fmt.Sprintf("nc -z localhost %d || exit 1", port)},
+			Interval: ptr(types.Duration(5 * time.Second)),
+			Timeout:  ptr(types.Duration(5 * time.Second)),
+			Retries:  ptr(uint64(5)),
+		},
+		Develop: &types.DevelopConfig{
+			Watch: []types.Trigger{
+				{
+					Action: watchAction, // Now matches types.WatchAction
+					Path:   "./" + node.Label,
+					Target: watchTarget,
+					Ignore: watchIgnore,
+				},
+			},
+		},
 	}
-	servicesYaml.WriteString("\n")
 
-	// 6. Add the servicesYaml content to the compose file
-	composeFilePath := filepath.Join(basePath, "docker-compose.yml")
-	composeContent, err := ReadFileContent(composeFilePath)
-	if err != nil {
-		return fmt.Errorf("error reading compose file: %v", err)
-	}
-
-	// Insert servicesYaml under the "services:" section
-	lines := strings.Split(composeContent, "\n")
-	var newComposeContent strings.Builder
-	inserted := false
-	for _, line := range lines {
-		newComposeContent.WriteString(line + "\n")
-		if strings.TrimSpace(line) == "services:" && !inserted {
-			newComposeContent.WriteString(servicesYaml.String())
-			inserted = true
+	if lang == "python" || lang == "javascript" {
+		newService.Environment = map[string]*string{
+			"SERVICE_NAME": &node.Label,
 		}
 	}
 
-	err = WriteFileContent(composeFilePath, newComposeContent.String())
-	if err != nil {
-		return fmt.Errorf("error writing updated compose file: %v", err)
+	// 7. Insert and Save
+	if project.Services == nil {
+		project.Services = make(types.Services)
 	}
-	return err
+	project.Services[node.Label] = newService
+
+	newYaml, err := yaml.Marshal(project)
+	if err != nil {
+		return fmt.Errorf("failed to marshal refactored project: %w", err)
+	}
+
+	return os.WriteFile(composeFilePath, newYaml, 0644)
 }
 
 func GetPortFromNode(node graphparsing.Node) (int, error) {
@@ -907,8 +890,66 @@ func GetPortFromNode(node graphparsing.Node) (int, error) {
 	}
 	return port, nil
 }
+func RemoveCallToService(sourceNode graphparsing.Node, targetNode graphparsing.Node, basePath string) error {
+	// Get filepath and extension for source node
+	extensions := map[string]string{
+		"java":       ".java",
+		"python":     ".py",
+		"javascript": ".js",
+		"html":       ".html",
+		"golang":     ".go",
+	}
+	
+	sourceLang := strings.ToLower(sourceNode.Properties.Language)
+	
+	ext, ok := extensions[sourceLang]
+	if !ok {
+		ext = ".txt"
+	}
 
+	mainFilePath := filepath.Join(basePath, SanitizeName(sourceNode.Label), "main"+ext)
+	mainContent, err := os.ReadFile(mainFilePath)
+	if err != nil {
+		return fmt.Errorf("error reading source main file for call removal: %w", err)
+	}
 
+	content := string(mainContent)
+	
+	var startMarker, endMarker string
+	if ext == ".py" {
+		startMarker = fmt.Sprintf("# BEGIN CALL TO %s", SanitizeName(targetNode.Label))
+		endMarker = fmt.Sprintf("# END CALL TO %s", SanitizeName(targetNode.Label))
+	} else {
+		startMarker = fmt.Sprintf("// BEGIN CALL TO %s", SanitizeName(targetNode.Label))
+		endMarker = fmt.Sprintf("// END CALL TO %s", SanitizeName(targetNode.Label))
+	}
+	// It can happen multiple calls to the same service exist, we should remove all.
+	startIdx := strings.Index(content, startMarker)
+	endIdx := strings.Index(content, endMarker)
+	if startIdx == -1 || endIdx == -1 || endIdx < startIdx {
+		log.Printf("Call markers not found for %s in %s. Skipping call removal.", targetNode.Label, sourceNode.Label)
+		return nil
+	}
+	
+	// Remove the content between the markers, including the markers themselves
+	newContent := content[:startIdx] + content[endIdx+len(endMarker):]
+	// Loop to remove any additional occurrences of the same call
+	for {
+		startIdx = strings.Index(newContent, startMarker)
+		endIdx = strings.Index(newContent, endMarker)
+		if startIdx == -1 || endIdx == -1 || endIdx < startIdx {
+			break
+		}
+		newContent = newContent[:startIdx] + newContent[endIdx+len(endMarker):]
+	}
+	err = os.WriteFile(mainFilePath, []byte(newContent), 0644)
+	if err != nil {
+		return fmt.Errorf("error writing updated main file after call removal: %w", err)
+	}
+	
+	log.Printf("Successfully removed call logic from %s to %s", sourceNode.Label, targetNode.Label)
+	return nil
+}
 
 func HandleCallFromNode(sourceNode graphparsing.Node, targetNode graphparsing.Node, edge graphparsing.Edge, basePath string) error {
 	// Guarantee that label's are sanitized for file paths
@@ -1199,6 +1240,61 @@ func RedirectCallsFromOneServiceToAnother(sourceNode graphparsing.Node, targetNo
 	}
 	return nil
 }
+func RedoServicesWithNewLanguage(nodes []graphparsing.Node, graphStruct graphparsing.Graph, basePath string) error {
+	// First, remove the existing service
+	for _, node := range nodes {
+		err := RemoveService(node, graphStruct, basePath)
+		if err != nil {
+			return fmt.Errorf("error removing existing service: %v", err)
+		}
+	}
+
+	// Then, create a new service with the updated language
+	for _, node := range nodes {
+		err := CreateBasicFileFromNode(node, basePath)
+		if err != nil {
+			return fmt.Errorf("error creating new service with updated language: %v", err)
+		}
+	}
+
+	// Start the new service using docker compose
+    for _, node := range nodes {
+		cmd := exec.Command("docker", "compose", "up", "-d", SanitizeName(node.Label))
+		cmd.Dir = basePath
+		cmd.Stderr = os.Stderr
+		if err := cmd.Run(); err != nil {
+			return fmt.Errorf("failed to start service %s: %w", node.Label, err)
+		}
+	}
+
+    // Refresh the project lock to ensure it reflects the new language and dependencies
+    err := CleanProjectLock(basePath)
+    if err != nil {
+        log.Printf("Warning: failed to clean project lock: %v", err)
+    }
+
+    //Start the watch process again in the background
+    watchCmd := exec.Command("docker", "compose", "watch")
+    watchCmd.Dir = basePath
+	watchCmd.Stderr = os.Stderr
+    if err := watchCmd.Start(); err != nil {
+        return fmt.Errorf("failed to restart docker compose watch: %w", err)
+    }
+
+	// Check health to ensure the architecture is stable after changes
+	expectedServices := make(map[string]int)
+	for _, node := range graphStruct.Nodes {
+		expectedServices[SanitizeName(node.Label)] = 1
+	}
+	err = LoopUntilHealthy(basePath, expectedServices, time.Now())
+	if err != nil {
+		return fmt.Errorf("error achieving healthy state after language change: %v", err)
+	}
+
+	return nil
+}
+
+
 
 func RemoveService(node graphparsing.Node, graphStruct graphparsing.Graph, basePath string) error {
 	// Remove the service directory and its contents
@@ -1279,4 +1375,8 @@ func getFileExtension(lang string) string {
 		return ext
 	}
 	return ".txt"
+}
+
+func ptr[T any](v T) *T {
+	return &v
 }

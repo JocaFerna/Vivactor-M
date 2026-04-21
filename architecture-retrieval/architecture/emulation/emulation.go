@@ -15,6 +15,7 @@ import (
 	"strings"
 	"time"
 )
+
 func RestartEmulationWithNewGraph(graph string) error {
 	// First, we need to stop the current emulation if there is one running.
 	// We can do this by killing any existing "docker compose watch" processes related to the current project.

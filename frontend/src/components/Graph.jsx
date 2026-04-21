@@ -16,11 +16,14 @@ const NODE_ICONS = {
 const Graph = () => {
     const irData = useGlobalStore((state) => state.graphData);
 
+    // FIX: Using functional updates for Zustand to avoid dependency loops with irData
     const deleteNode = useCallback((nodeId) => {
-        const newNodes = irData.nodes.filter(n => n.id !== nodeId);
-        const newEdges = irData.edges.filter(e => e.source !== nodeId && e.target !== nodeId);
-        useGlobalStore.setState({ graphData: { ...irData, nodes: newNodes, edges: newEdges } });
-    }, [irData]);
+        useGlobalStore.setState((state) => {
+            const newNodes = state.graphData.nodes.filter(n => n.id !== nodeId);
+            const newEdges = state.graphData.edges.filter(e => e.source !== nodeId && e.target !== nodeId);
+            return { graphData: { ...state.graphData, nodes: newNodes, edges: newEdges } };
+        });
+    }, []);
 
     const deleteEdge = useCallback((edge) => {
         const newEdges = irData.edges.filter(e => 
@@ -37,10 +40,12 @@ const Graph = () => {
             icon: NODE_ICONS[node.properties?.language] || NODE_ICONS[node.type] || NODE_ICONS.BasicNode,
         }));
         const formattedEdges = irData.edges.map((edge, idx) => ({
-            id: `edge-${idx}`,
+            // FIX: Using source-target-endpoint as a unique ID. 
+            // idx-based IDs cause NaN errors when the array order shifts during refactoring!
+            id: `${edge.source}-${edge.target}-${idx}`, 
             source: edge.source,
             target: edge.target,
-            label: edge.endpoint,
+            label: edge.endpoint || '',
             size: 5, // Increase edge width
         }));
         return { nodes: formattedNodes, edges: formattedEdges };

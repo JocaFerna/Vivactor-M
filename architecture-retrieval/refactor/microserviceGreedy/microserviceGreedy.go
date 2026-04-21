@@ -65,6 +65,11 @@ func RefactorMicroserviceGreedy(graph string, greedyMicroservices []string) (str
 			log.Printf("Error removing service: %v\n", err)
 			continue
 		}
+		// Remove call to the greedy microservice from the source code of the service to merge.
+		if err = utils.RemoveCallToService(serviceNode, greedyNode, basePath); err != nil {
+			log.Printf("Error removing call to service: %v\n", err)
+			continue
+		}
 		// Merge the greedy microservice with the service with the most interactions.
 		graphStruct = graphparsing.MergeNodeIntoAnother(graphStruct, greedyNode, serviceNode)
 		refactoredMicroservices = append(refactoredMicroservices, serviceNode.Label)
