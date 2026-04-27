@@ -52,8 +52,10 @@ func MitigateNonAPIGateway(graphString string, selectedNodes []string) (string, 
 		return "", fmt.Errorf("Error creating API Gateway node: %v", err)
 	}
 
+	unstableServices := make(map[string]bool)
 	// Eliminate any edges within the selected nodes and create new edges from the API Gateway to the selected nodes
 	for i, _ := range nodeMap {
+		unstableServices[utils.SanitizeName(nodeMap[i].Label)] = true
 		node1 := nodeMap[i]
 		for j := i + 1; j < len(nodeMap); j++ {
 			node2 := nodeMap[j]
@@ -114,8 +116,17 @@ func MitigateNonAPIGateway(graphString string, selectedNodes []string) (string, 
 			}
 	}
 	// Before Starting the new API Gateway service, we wait for a 40 seconds to ensure all changes are caught by watch
-	fmt.Println("Waiting for 40 seconds before starting the new API Gateway service to ensure all changes are caught by watch...")
-	time.Sleep(40 * time.Second)
+	fmt.Println("Wait for services stable before starting the new API Gateway service...")
+	targetServices := make([]string, 0, len(unstableServices))
+	for service := range unstableServices {
+		targetServices = append(targetServices, service)
+	}
+	err = utils.LoopUntilServicesStable(basePath, targetServices)
+	if err != nil {
+		return "", fmt.Errorf("Error waiting for services to stabilize: %v", err)
+	}
+	time.Sleep(2* time.Second) // Additional sleep to ensure stability before starting the new service
+
 	// Start the new API Gateway service
 	err = utils.StartServiceFromNode(apiGatewayNode, graph, basePath)
 	if err != nil {

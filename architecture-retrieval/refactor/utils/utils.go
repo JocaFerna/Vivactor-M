@@ -1422,6 +1422,70 @@ func getFileExtension(lang string) string {
 	return ".txt"
 }
 
+// LoopUntilServicesStable specifically waits for a subset of services 
+// (the ones you modified) to reach the 'running' state.
+func LoopUntilServicesStable(repoPath string, targetServices []string) error {
+	maxRetries := 30 // 30 * 5s = 150 seconds total
+
+	for i := 0; i < maxRetries; i++ {
+		err := CheckSpecificServicesRunning(repoPath, targetServices)
+		if err == nil {
+			log.Printf("Target services %v have stabilized.", targetServices)
+			return nil
+		}
+
+		log.Printf("Waiting for %v to settle (attempt %d/%d): %v", targetServices, i+1, maxRetries, err)
+		
+		// We use a shorter sleep (5s) because container state transitions 
+		// often happen faster than a full application healthcheck.
+		time.Sleep(5 * time.Second)
+	}
+
+	return fmt.Errorf("timeout: services %v failed to stabilize after recreate", targetServices)
+}
+
+// CheckSpecificServicesRunning verifies only the services in the target list.
+func CheckSpecificServicesRunning(repoPath string, targetServices []string) error {
+	// We run docker compose ps to query the state of the modified containers
+	cmd := exec.Command("docker", "compose", "ps", "--format", "json")
+	cmd.Dir = repoPath
+
+	out, err := cmd.Output()
+	if err != nil {
+		return fmt.Errorf("failed to run docker compose ps: %w", err)
+	}
+
+	scanner := bufio.NewScanner(bytes.NewReader(out))
+	runningMap := make(map[string]bool)
+
+	for scanner.Scan() {
+		var container ComposeContainer // Uses your existing struct
+		if err := json.Unmarshal(scanner.Bytes(), &container); err != nil {
+			continue
+		}
+
+		// Check if this container is one of the ones we touched
+		for _, target := range targetServices {
+			if container.Service == target {
+				// To be "Stable", it must be 'running' 
+				// AND not in the 'starting' phase of a healthcheck
+				if container.State == "running" && container.Health != "starting" {
+					runningMap[target] = true
+				}
+			}
+		}
+	}
+
+	// Verify that every target we touched is actually running
+	for _, target := range targetServices {
+		if !runningMap[target] {
+			return fmt.Errorf("service %s is not stable (either missing or recreating)", target)
+		}
+	}
+
+	return nil
+}
+
 func ptr[T any](v T) *T {
 	return &v
 }
