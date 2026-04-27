@@ -77,6 +77,11 @@ func containsSlice(slice [][]string, element []string) bool {
 // currentCycles: A list of cycles found so far
 func dfs(adjList map[*graphparsing.Node][]*graphparsing.Node, node *graphparsing.Node, visited map[*graphparsing.Node]bool ,startNode *graphparsing.Node, nodeStack []*graphparsing.Node, currentCycles [][]*graphparsing.Node) ([][]*graphparsing.Node, bool) {
 	
+	// We do not consider API Gateway nodes as part of the cycles, since they are not really a cyclic dependency, but rather a design choice.
+	if node.Type == "APIGateway" {
+		return currentCycles, false
+	}
+	
 	if visited[node]{
 		if node == startNode {
 			return append(currentCycles, nodeStack), true

@@ -41,6 +41,51 @@ func GetFilesInDirectory(dirPath string) ([]string, error) {
 	}
 	return files, nil
 }
+func GenerateAPIGatewayFromNode(apiNode graphparsing.Node, basePath string) error {
+	// We want to create a simple custom API Gateway using Python. This basically generating a service from a node.
+	err := CreateBasicFileFromNode(apiNode, basePath)
+	if err != nil {
+		return fmt.Errorf("error creating API gateway from node: %v", err)
+	}
+	return nil
+}
+func StartServiceFromNode(node graphparsing.Node,graph graphparsing.Graph, basePath string) error {
+	
+	// Start the new service using docker compose
+	cmd := exec.Command("docker", "compose", "up", "-d", SanitizeName(node.Label))
+	cmd.Dir = basePath
+	cmd.Stderr = os.Stderr
+	err := cmd.Run()
+	if err != nil {
+		return fmt.Errorf("error starting API gateway service: %v", err)
+	}
+
+	// Refresh the project lock to ensure it reflects the new language and dependencies
+    err = CleanProjectLock(basePath)
+    if err != nil {
+        log.Printf("Warning: failed to clean project lock: %v", err)
+    }
+
+    //Start the watch process again in the background
+    watchCmd := exec.Command("docker", "compose", "watch")
+    watchCmd.Dir = basePath
+	watchCmd.Stderr = os.Stderr
+    if err := watchCmd.Start(); err != nil {
+        return fmt.Errorf("failed to restart docker compose watch: %w", err)
+    }
+
+	// Check health to ensure the architecture is stable after changes
+	expectedServices := make(map[string]int)
+	for _, node := range graph.Nodes {
+		expectedServices[SanitizeName(node.Label)] = 1
+	}
+	err = LoopUntilHealthy(basePath, expectedServices, time.Now())
+	if err != nil {
+		return fmt.Errorf("error achieving healthy state after language change: %v", err)
+	}
+
+	return nil
+}
 
 func ReadFileContent(filePath string) (string, error) {
 	content, err := os.ReadFile(filePath)

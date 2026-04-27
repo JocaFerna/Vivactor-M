@@ -11,6 +11,7 @@ import (
 	wrongCutsRefactor "architecture-retrieval/refactor/wrongCuts"
 	microserviceGreedyRefactor "architecture-retrieval/refactor/microserviceGreedy"
 	tooManyStandardsRefactor "architecture-retrieval/refactor/tooManyStandards"
+	nonAPIGatewayRefactor "architecture-retrieval/refactor/nonAPIGateway"
 
 
 	"architecture-retrieval/smells/apiNonVersioned"
@@ -70,6 +71,7 @@ func Register() {
 		"/refactor/mitigateWrongCutsSmells": wrongCutsRefactorHandler,
 		"/refactor/mitigateMicroserviceGreedySmells": microserviceGreedyRefactorHandler,
 		"/refactor/mitigateTooManyStandardsSmells": tooManyStandardsRefactorHandler,
+		"/refactor/mitigateNonAPIGatewaySmells": nonAPIGatewayRefactorHandler,
 	}
 
 	for route, handler := range routes {
@@ -81,6 +83,30 @@ func Register() {
 
 func home(writer http.ResponseWriter, request *http.Request) {
 	fmt.Fprintf(writer, "{\"message\": \"Hello World\"}")
+}
+
+// Refactor of Non API Versioned -> Handling of the route
+func nonAPIGatewayRefactorHandler(writer http.ResponseWriter, request *http.Request) {
+	log.Println("Received mitigate non API versioned smells request")
+	graph := request.URL.Query().Get("graph")
+	nonAPIVersionedSmells := request.URL.Query().Get("noAPIGatewaySmells")
+	// Remove [ and ] from the nonAPIVersionedSmells string
+	nonAPIVersionedSmells = strings.TrimPrefix(nonAPIVersionedSmells, "[")
+	nonAPIVersionedSmells = strings.TrimSuffix(nonAPIVersionedSmells, "]")
+	nonAPIVersionedSmellsList := strings.Split(nonAPIVersionedSmells, ",")
+	fmt.Printf("Non API Versioned Smells: %v\n", nonAPIVersionedSmellsList)
+	graphRefactored, err := nonAPIGatewayRefactor.MitigateNonAPIGateway(graph, nonAPIVersionedSmellsList)
+	if err != nil {
+		log.Printf("Error mitigating non API versioned smells: %s\n", err.Error())
+		writer.WriteHeader(http.StatusInternalServerError)
+		writer.Write([]byte("{\"message\": \"Error mitigating non API versioned smells\"}"))
+		return
+	} else {
+		// Return 200 OK
+		writer.WriteHeader(http.StatusOK)
+		writer.Write([]byte("{\"message\": \"Mitigating non API versioned smells...\", \"graph\": " + graphRefactored + "}"))
+		return
+	}
 }
 
 // Refactor of Too Many Standards -> Handling of the route

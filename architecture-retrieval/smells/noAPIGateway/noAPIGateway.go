@@ -25,7 +25,7 @@ func GetNoAPIGateway(graph string) (bool, error){
 	// Check if there is an API Gateway
 	for _, node := range graphStruct.Nodes {
 		if node.Type == "APIGateway" {
-			return true, nil
+			return false, nil
 		}
 	}
 

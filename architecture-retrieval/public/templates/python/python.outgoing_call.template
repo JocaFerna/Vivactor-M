@@ -1,6 +1,6 @@
-                # BEGIN DB CALL TO {{TARGET_LABEL}}
+                # BEGIN CALL TO {{TARGET_LABEL}}
                 # Call to: {{TARGET_LABEL}}
                 print(f"[{{SERVICE_NAME}}] Attempting call to {{TARGET_LABEL}}...")
                 resp = requests.get("[{{CALL_DEFINITION}}]", timeout=5)
                 print(f"[{{SERVICE_NAME}}] Response from {{TARGET_LABEL}} on [{{CALL_DEFINITION}}]: {resp.status_code}", flush=True)
-                # END DB CALL TO {{TARGET_LABEL}}
+                # END CALL TO {{TARGET_LABEL}}

@@ -1,0 +1,80 @@
+{
+  "nodes": [
+    { "id": "1", "label": "user-profile-service", "type": "BasicNode", "properties": { "language": "java", "orderOfMagnitudeOfFiles": "10^2", "port": "8080" } },
+    { "id": "2", "label": "authentication-service", "type": "BasicNode", "properties": { "language": "java", "orderOfMagnitudeOfFiles": "10^2", "port": "8080" } },
+    { "id": "3", "label": "authorization-service", "type": "BasicNode", "properties": { "language": "java", "orderOfMagnitudeOfFiles": "10^1", "port": "8080" } },
+    { "id": "4", "label": "order-placement-service", "type": "BasicNode", "properties": { "language": "python", "orderOfMagnitudeOfFiles": "10^3", "port": "8080" } },
+    { "id": "5", "label": "order-history-service", "type": "BasicNode", "properties": { "language": "python", "orderOfMagnitudeOfFiles": "10^2", "port": "8080" } },
+    { "id": "6", "label": "order-validation-service", "type": "BasicNode", "properties": { "language": "python", "orderOfMagnitudeOfFiles": "10^2", "port": "8080" } },
+    { "id": "7", "label": "catalog-search-service", "type": "BasicNode", "properties": { "language": "javascript", "orderOfMagnitudeOfFiles": "10^2", "port": "8080" } },
+    { "id": "8", "label": "product-metadata-service", "type": "BasicNode", "properties": { "language": "javascript", "orderOfMagnitudeOfFiles": "10^2", "port": "8080" } },
+    { "id": "9", "label": "stock-availability-service", "type": "BasicNode", "properties": { "language": "javascript", "orderOfMagnitudeOfFiles": "10^1", "port": "8080" } },
+    { "id": "10", "label": "inventory-reservation-service", "type": "BasicNode", "properties": { "language": "javascript", "orderOfMagnitudeOfFiles": "10^1", "port": "8080" } },
+    { "id": "11", "label": "shipping-calculator-service", "type": "BasicNode", "properties": { "language": "python", "orderOfMagnitudeOfFiles": "10^2", "port": "8080" } },
+    { "id": "12", "label": "tracking-service", "type": "BasicNode", "properties": { "language": "python", "orderOfMagnitudeOfFiles": "10^2", "port": "8080" } },
+    { "id": "13", "label": "label-generation-service", "type": "BasicNode", "properties": { "language": "java", "orderOfMagnitudeOfFiles": "10^2", "port": "8080" } },
+    { "id": "14", "label": "payment-gateway-service", "type": "BasicNode", "properties": { "language": "java", "orderOfMagnitudeOfFiles": "10^2", "port": "8080" } },
+    { "id": "15", "label": "refund-processing-service", "type": "BasicNode", "properties": { "language": "java", "orderOfMagnitudeOfFiles": "10^2", "port": "8080" } },
+    { "id": "16", "label": "billing-invoice-service", "type": "BasicNode", "properties": { "language": "java", "orderOfMagnitudeOfFiles": "10^2", "port": "8080" } },
+    { "id": "17", "label": "email-notification-service", "type": "BasicNode", "properties": { "language": "python", "orderOfMagnitudeOfFiles": "10^1", "port": "8080" } },
+    { "id": "18", "label": "sms-notification-service", "type": "BasicNode", "properties": { "language": "python", "orderOfMagnitudeOfFiles": "10^1", "port": "8080" } },
+    { "id": "19", "label": "push-notification-service", "type": "BasicNode", "properties": { "language": "javascript", "orderOfMagnitudeOfFiles": "10^1", "port": "8080" } },
+    { "id": "20", "label": "recommendation-engine", "type": "BasicNode", "properties": { "language": "python", "orderOfMagnitudeOfFiles": "10^3", "port": "8080" } },
+    { "id": "21", "label": "user-behavior-analytics", "type": "BasicNode", "properties": { "language": "python", "orderOfMagnitudeOfFiles": "10^3", "port": "8080" } },
+    { "id": "22", "label": "shopping-cart-service", "type": "BasicNode", "properties": { "language": "javascript", "orderOfMagnitudeOfFiles": "10^2", "port": "8080" } },
+    { "id": "23", "label": "wishlist-service", "type": "BasicNode", "properties": { "language": "javascript", "orderOfMagnitudeOfFiles": "10^1", "port": "8080" } },
+    { "id": "24", "label": "loyalty-points-service", "type": "BasicNode", "properties": { "language": "java", "orderOfMagnitudeOfFiles": "10^2", "port": "8080" } },
+    { "id": "25", "label": "coupon-validation-service", "type": "BasicNode", "properties": { "language": "java", "orderOfMagnitudeOfFiles": "10^1", "port": "8080" } },
+    { "id": "26", "label": "review-rating-service", "type": "BasicNode", "properties": { "language": "javascript", "orderOfMagnitudeOfFiles": "10^2", "port": "8080" } },
+    { "id": "27", "label": "vendor-management-service", "type": "BasicNode", "properties": { "language": "java", "orderOfMagnitudeOfFiles": "10^2", "port": "8080" } },
+    { "id": "28", "label": "pricing-engine-service", "type": "BasicNode", "properties": { "language": "python", "orderOfMagnitudeOfFiles": "10^2", "port": "8080" } },
+    { "id": "29", "label": "audit-log-service", "type": "BasicNode", "properties": { "language": "java", "orderOfMagnitudeOfFiles": "10^2", "port": "8080" } },
+    { "id": "30", "label": "search-indexing-service", "type": "BasicNode", "properties": { "language": "javascript", "orderOfMagnitudeOfFiles": "10^2", "port": "8080" } },
+    { "id": "31", "label": "customer-support-chat-service", "type": "BasicNode", "properties": { "language": "javascript", "orderOfMagnitudeOfFiles": "10^2", "port": "8080" } },
+    { "id": "32", "label": "message-broker-esb", "type": "ESB", "properties": { "language": "java", "orderOfMagnitudeOfFiles": "10^1", "port": "9092" } },
+    { "id": "33", "label": "user-db", "type": "DatabaseNode" },
+    { "id": "34", "label": "order-db", "type": "DatabaseNode" },
+    { "id": "35", "label": "inventory-db", "type": "DatabaseNode" },
+    { "id": "36", "label": "shipping-db", "type": "DatabaseNode" },
+    { "id": "37", "label": "payment-db", "type": "DatabaseNode" },
+    { "id": "38", "label": "analytics-db", "type": "DatabaseNode" },
+    { "id": "39", "label": "catalog-db", "type": "DatabaseNode" },
+    { "id": "40", "label": "marketing-db", "type": "DatabaseNode" },
+    { "id": "41", "label": "audit-db", "type": "DatabaseNode" },
+    { "id": "42", "label": "loyalty-db", "type": "DatabaseNode" },
+    { "id": "43", "label": "review-db", "type": "DatabaseNode" },
+    { "id": "44", "label": "cart-cache", "type": "DatabaseNode" },
+    { "id": "45", "label": "web-frontend-portal", "type": "BasicNode", "properties": { "language": "html", "orderOfMagnitudeOfFiles": "10^2", "port": "80" } },
+    { "id": "46", "label": "mobile-bff-service", "type": "BasicNode", "properties": { "language": "javascript", "orderOfMagnitudeOfFiles": "10^2", "port": "8080" } },
+    { "id": "47", "label": "admin-dashboard-service", "type": "BasicNode", "properties": { "language": "html", "orderOfMagnitudeOfFiles": "10^2", "port": "80" } },
+    { "id": "48", "label": "tax-calculation-service", "type": "BasicNode", "properties": { "language": "python", "orderOfMagnitudeOfFiles": "10^1", "port": "8080" } },
+    { "id": "49", "label": "fraud-detection-service", "type": "BasicNode", "properties": { "language": "python", "orderOfMagnitudeOfFiles": "10^3", "port": "8080" } },
+    { "id": "50", "label": "subscription-service", "type": "BasicNode", "properties": { "language": "java", "orderOfMagnitudeOfFiles": "10^2", "port": "8080" } },
+    { "id": "51", "label": "geo-location-service", "type": "BasicNode", "properties": { "language": "javascript", "orderOfMagnitudeOfFiles": "10^1", "port": "8080" } }
+  ],
+  "edges": [
+    { "source": "45", "target": "2", "endpoint": "/api/v1/login", "properties": { "callDefinitionInSource": "http://authentication-service:8080/api/v1/login", "method": "POST" } },
+    { "source": "4", "target": "6", "endpoint": "/validate", "properties": { "callDefinitionInSource": "http://order-validation-service:8080/validate", "method": "POST" } },
+    { "source": "4", "target": "14", "endpoint": "/pay", "properties": { "callDefinitionInSource": "http://payment-gateway-service:8080/pay", "method": "POST" } },
+    { "source": "4", "target": "32", "endpoint": "/events", "properties": { "callDefinitionInSource": "http://message-broker-esb:9092/events", "method": "POST" } },
+    { "source": "1", "target": "33", "endpoint": "/sql", "properties": { "callDefinitionInSource": "jdbc:postgresql://user-db:5432/mydb", "method": "SQL" } },
+    { "source": "4", "target": "34", "endpoint": "/sql", "properties": { "callDefinitionInSource": "jdbc:postgresql://order-db:5432/mydb", "method": "SQL" } },
+    { "source": "10", "target": "35", "endpoint": "/sql", "properties": { "callDefinitionInSource": "jdbc:postgresql://inventory-db:5432/mydb", "method": "SQL" } },
+    { "source": "14", "target": "37", "endpoint": "/sql", "properties": { "callDefinitionInSource": "jdbc:postgresql://payment-db:5432/mydb", "method": "SQL" } }
+  ],
+  "systemContext": {
+    "name": "Enterprise E-commerce Platform",
+    "description": "A highly decomposed microservices architecture separated by business capabilities with 51 nodes.",
+    "selfManagedLibraries": [
+      {
+        "name": "logging-library",
+        "servicesUsingLibrary": [ "user-profile-service", "order-placement-service", "payment-gateway-service", "inventory-reservation-service" ]
+      },
+      {
+        "name": "authentication-library",
+        "servicesUsingLibrary": [ "authentication-service", "authorization-service" ]
+      }
+    ],
+    "servicesSeparatedByBusinessDomain": true
+  }
+}
