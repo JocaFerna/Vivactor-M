@@ -26,6 +26,7 @@ const refactorSoftware = async (repoUrl, refactorType, selectedApis) => {
             case "wrongCuts": endpoint = "mitigateWrongCutsSmells"; break;
             case "tooManyStandards": endpoint = "mitigateTooManyStandardsSmells"; paramKey = "tooManyStandardsSmells"; break;
             case "noAPIGateway": endpoint = "mitigateNonAPIGatewaySmells"; paramKey = "noAPIGatewaySmells"; break;
+            case "innapropriateServiceIntimacity": endpoint = "innapropriateServiceIntimacity"; paramKey = "innapropriateServiceIntimacitySmells"; break;
             default: return;
         }
 
@@ -116,7 +117,8 @@ const RefactorModal = ({ isOpen, onClose, typeOfRefactor }) => {
             microserviceGreedy: "Service Greediness",
             sharedLibraries: "Library Coupling",
             sharedPersistency: "Database Sharing",
-            noAPIGateway: "API Gateway Integration"
+            noAPIGateway: "API Gateway Integration",
+            innapropriateServiceIntimacity: "Innapropriate Service Intimacy"
         };
         return titles[typeOfRefactor] || "Architecture Refactor";
     };

@@ -110,7 +110,7 @@ func GetInnapropriateServiceIntimacity(graph string) ([]string, error){
 				}
 
 				if otherTargetNode.Id == targetNode.Id && otherSourceNode.Id != sourceNode.Id && otherSourceNode.Type == "BasicNode" {
-					innapropriateServiceIntimacity = append(innapropriateServiceIntimacity, fmt.Sprintf("Service %s is calling database %s owned by service %s", otherSourceNode.Label, targetNode.Label, sourceNode.Label))
+					innapropriateServiceIntimacity = append(innapropriateServiceIntimacity, fmt.Sprintf("Service: %s, Database: %s, Owner: %s", otherSourceNode.Label, targetNode.Label, sourceNode.Label))
 				}
 			}
 		}

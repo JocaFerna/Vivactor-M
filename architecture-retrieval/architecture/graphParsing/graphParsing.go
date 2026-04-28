@@ -139,6 +139,28 @@ func RemoveEdge(edges []Edge, edgeToRemove Edge) []Edge {
 	return edges
 }
 
+func RemoveNode(graph Graph, nodeToRemove Node) Graph {
+	// Remove the node from the graph
+	var updatedNodes []Node
+	for _, node := range graph.Nodes {
+		if node.Id != nodeToRemove.Id {
+			updatedNodes = append(updatedNodes, node)
+		}
+	}
+	graph.Nodes = updatedNodes
+
+	// Remove all edges that point to or from the removed node
+	var updatedEdges []Edge
+	for _, edge := range graph.Edges {
+		if edge.Source != nodeToRemove.Id && edge.Target != nodeToRemove.Id {
+			updatedEdges = append(updatedEdges, edge)
+		}
+	}
+	graph.Edges = updatedEdges
+
+	return graph
+}
+
 func MergeNodeIntoAnother(graph Graph, nodeToBeMerged Node, nodeToReceive Node) Graph {
 	
 	// Replace all edges that point to nodeToBeMerged with nodeToReceive

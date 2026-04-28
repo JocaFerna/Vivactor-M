@@ -100,52 +100,6 @@ func EmulateArchitecture(graph string) error {
 		node.Label = sanitizeString(node.Label)
 
 		expectedServices[node.Label] = 0
-
-		serviceDir := filepath.Join(basePath, node.Label)
-		os.MkdirAll(serviceDir, 0755)
-		if node.Type == "DatabaseNode"{
-			// Database nodes can be emulated with a simple Dockerfile that uses an official image (e.g., MySQL, PostgreSQL)
-			dockerContent, _ := loadDockerfileTemplate("database", node.Label)
-        	os.WriteFile(filepath.Join(serviceDir, "Dockerfile"), []byte(dockerContent), 0644)
-		}else{
-
-			// 1. Load and manipulate the template
-			lang := strings.ToLower(node.Properties.Language)
-			log.Println("Language: %s", lang)
-
-			ext, content, err := loadAndProcessTemplate(node, lang)
-			if err != nil {
-				// Fallback if template doesn't exist
-				ext = ".txt"
-				content = fmt.Sprintf("Fallback for service: %s", node.Label)
-			}
-
-			// 2. Write the main entry file
-			mainFilePath := filepath.Join(serviceDir, "main"+ext)
-			os.WriteFile(mainFilePath, []byte(content), 0644)
-
-			// 3. Generate magnitude files (10^n)
-			generateMagnitudeFiles(serviceDir, node.Properties.OrderOfMagnitudeOfFiles, ext)
-			
-			// 4. Load and write Dockerfile if template exists
-			dockerContent, err := loadDockerfileTemplate(lang, node.Label)
-			if err == nil {
-				dockerFilePath := filepath.Join(serviceDir, "Dockerfile")
-				os.WriteFile(dockerFilePath, []byte(dockerContent), 0644)
-			}
-		}
-		// 5. Build the docker compose entry for this node
-		servicesYaml.WriteString(fmt.Sprintf("  %s:\n", node.Label))
-		servicesYaml.WriteString(fmt.Sprintf("    build: ./%s\n", node.Label))
-		servicesYaml.WriteString("    networks:\n")
-		servicesYaml.WriteString("      - shared_network\n")
-		
-		// Optional: Add environment variables for edges
-		if node.Properties.Language == "python" || node.Properties.Language == "javascript" {
-			servicesYaml.WriteString("    environment:\n")
-			servicesYaml.WriteString(fmt.Sprintf("      - SERVICE_NAME=%s\n", node.Label))
-		}
-		
 		// TODO: This port configuration is TOO much basic and we will maybe need to refactor
 		var port int
 		if node.Properties.Port != "" {
@@ -168,6 +122,53 @@ func EmulateArchitecture(graph string) error {
 		if !check {
 			log.Printf("Warning: Port %d for service %s does not match any incoming edges. Healthcheck might fail.\n", port, node.Label)
 		}
+
+		serviceDir := filepath.Join(basePath, node.Label)
+		os.MkdirAll(serviceDir, 0755)
+		if node.Type == "DatabaseNode"{
+			// Database nodes can be emulated with a simple Dockerfile that uses an official image (e.g., MySQL, PostgreSQL)
+			dockerContent, _ := loadDockerfileTemplate("database", node.Label, strconv.Itoa(port))
+        	os.WriteFile(filepath.Join(serviceDir, "Dockerfile"), []byte(dockerContent), 0644)
+		}else{
+
+			// 1. Load and manipulate the template
+			lang := strings.ToLower(node.Properties.Language)
+			log.Println("Language: %s", lang)
+
+			ext, content, err := loadAndProcessTemplate(node, lang)
+			if err != nil {
+				// Fallback if template doesn't exist
+				ext = ".txt"
+				content = fmt.Sprintf("Fallback for service: %s", node.Label)
+			}
+
+			// 2. Write the main entry file
+			mainFilePath := filepath.Join(serviceDir, "main"+ext)
+			os.WriteFile(mainFilePath, []byte(content), 0644)
+
+			// 3. Generate magnitude files (10^n)
+			generateMagnitudeFiles(serviceDir, node.Properties.OrderOfMagnitudeOfFiles, ext)
+			
+			// 4. Load and write Dockerfile if template exists
+			dockerContent, err := loadDockerfileTemplate(lang, node.Label, strconv.Itoa(port))
+			if err == nil {
+				dockerFilePath := filepath.Join(serviceDir, "Dockerfile")
+				os.WriteFile(dockerFilePath, []byte(dockerContent), 0644)
+			}
+		}
+		// 5. Build the docker compose entry for this node
+		servicesYaml.WriteString(fmt.Sprintf("  %s:\n", node.Label))
+		servicesYaml.WriteString(fmt.Sprintf("    build: ./%s\n", node.Label))
+		servicesYaml.WriteString("    networks:\n")
+		servicesYaml.WriteString("      - shared_network\n")
+		
+		// Optional: Add environment variables for edges
+		if node.Properties.Language == "python" || node.Properties.Language == "javascript" {
+			servicesYaml.WriteString("    environment:\n")
+			servicesYaml.WriteString(fmt.Sprintf("      - SERVICE_NAME=%s\n", node.Label))
+		}
+		
+		
 
 		servicesYaml.WriteString("    healthcheck:\n")
 		servicesYaml.WriteString(fmt.Sprintf("      test: [\"CMD-SHELL\", \"nc -z localhost %d || exit 1\"]\n", port))
@@ -723,7 +724,7 @@ func generateRootCompose(basePath string, servicesBlock string) error {
 }
 
 // Load the dockerfile template for the given language and replace placeholders
-func loadDockerfileTemplate(lang string, serviceName string) (string, error) {
+func loadDockerfileTemplate(lang string, serviceName string, port string) (string, error) {
     templatePath := filepath.Join("public", "templates", lang, lang+".dockerfile.template")
     data, err := os.ReadFile(templatePath)
     if err != nil {
@@ -732,7 +733,8 @@ func loadDockerfileTemplate(lang string, serviceName string) (string, error) {
     
     content := string(data)
     content = strings.ReplaceAll(content, "{{SERVICE_NAME}}", serviceName)
-    return content, nil
+	content = strings.ReplaceAll(content, "{{PORT}}", port)
+	return content, nil
 }
 
 func loadAndProcessTemplate(node graphparsing.Node, lang string) (string, string, error) {

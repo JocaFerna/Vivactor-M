@@ -1,8 +1,9 @@
 FROM nginx:alpine
 
-# Add this line to your Alpine-based Dockerfile templates
 RUN apk add --no-cache netcat-openbsd
 
-# Copy your generated HTML into the Nginx public folder
+# This one-liner modifies the default Nginx config to return 200 for any path
+RUN sed -i 's/index  index.html index.htm;/index  index.html index.htm; try_files $uri $uri\/ \/index.html =200;/g' /etc/nginx/conf.d/default.conf
+
 COPY . /usr/share/nginx/html
-EXPOSE 80
+EXPOSE {{PORT}}

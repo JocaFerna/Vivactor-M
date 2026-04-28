@@ -590,7 +590,7 @@ func CreateDatabaseFromNode(graphStruct graphparsing.Graph, node graphparsing.No
 			return graphparsing.Node{}, graphparsing.Graph{}, fmt.Errorf("error creating service directory: %v", err)
 		}
 	}
-	dockerContent, _ := loadDockerfileTemplate("database", sanitizedLabel)	
+	dockerContent, _ := loadDockerfileTemplate("database", sanitizedLabel, "5432")	
 	os.WriteFile(filepath.Join(serviceDir, "Dockerfile"), []byte(dockerContent), 0644)
 
 	// Buid the docker compose entry for this node
@@ -662,6 +662,100 @@ func CreateDatabaseFromNode(graphStruct graphparsing.Graph, node graphparsing.No
 	return node,graphStruct, nil
 
 }
+func MoveNodeCalls(graphStruct graphparsing.Graph, node graphparsing.Node, newOwner graphparsing.Node, basePath string) (graphparsing.Node, graphparsing.Graph, error) {
+	// Move all calls from the node to the new owner. This is used whenever we want to merge nodes.
+	for _, edge := range graphStruct.Edges {
+		if edge.Target == node.Id && edge.Source == newOwner.Id || edge.Source == node.Id && edge.Target == newOwner.Id {
+			// This is a call between the node and the new owner. We must eliminate it.
+			graphStruct.Edges = graphparsing.RemoveEdge(graphStruct.Edges, edge)
+			// Also remove the call from the files of both nodes.
+			if edge.Source == newOwner.Id {
+				err := RemoveCallToService(newOwner, node, basePath)
+				if err != nil {
+					return graphparsing.Node{}, graphparsing.Graph{}, fmt.Errorf("error removing call to service: %v", err)
+				}
+			} else {
+				err := RemoveCallToService(node, newOwner, basePath)
+				if err != nil {
+					return graphparsing.Node{}, graphparsing.Graph{}, fmt.Errorf("error removing call to service: %v", err)
+				}
+			}
+			continue
+		}
+		if edge.Source == node.Id {
+			// This is an outgoing call from the node. We need to change the source to the new owner.
+			newEdge := graphparsing.Edge{
+				Source: newOwner.Id,
+				Target: edge.Target,
+				Endpoint: edge.Endpoint,
+				Properties: edge.Properties,
+			}
+			graphStruct.Edges = append(graphStruct.Edges, newEdge)
+			// We need to remove the call from the file of the node and add it to the file of the new owner.
+			targetNode, err := graphparsing.GetNodeById(graphStruct, edge.Target)
+			if err != nil {
+				return graphparsing.Node{}, graphparsing.Graph{}, fmt.Errorf("error getting target node: %v", err)
+			}
+			if targetNode.Type == "DatabaseNode" {
+				err = RemoveCallToDBNode(&node, &targetNode, basePath)
+				if err != nil {
+					return graphparsing.Node{}, graphparsing.Graph{}, fmt.Errorf("error removing call to DB node: %v", err)
+				}
+			} else {
+				err = RemoveCallToService(node, targetNode, basePath)
+				if err != nil {
+					return graphparsing.Node{}, graphparsing.Graph{}, fmt.Errorf("error removing call to service: %v", err)
+				}
+			}
+			// Add the call to the new owner
+			if targetNode.Type == "DatabaseNode" {
+				err = handleCallToDBNode(&newOwner, &targetNode, newEdge, strings.ToLower(newOwner.Properties.Language), basePath)
+				if err != nil {
+					return graphparsing.Node{}, graphparsing.Graph{}, fmt.Errorf("error handling DB call: %v", err)
+				}
+			} else {
+				err = HandleCallFromNode(newOwner, targetNode, newEdge, basePath)
+				if err != nil {
+					return graphparsing.Node{}, graphparsing.Graph{}, fmt.Errorf("error handling call to service: %v", err)
+				}
+			}	
+
+		} else if edge.Target == node.Id {
+			// This is an incoming call to the node. We need to change the target to the new owner.
+			// Get port of newOwner
+			newOwnerPort, err := GetPortFromNode(newOwner)
+			if err != nil {
+				return graphparsing.Node{}, graphparsing.Graph{}, fmt.Errorf("error getting port from new owner: %v", err)
+			}
+
+			newEdge := graphparsing.Edge{
+				Source: edge.Source,
+				Target: newOwner.Id,
+				Endpoint: edge.Endpoint,
+				Properties: graphparsing.EdgeProperties{
+					CallDefinitionInSource: fmt.Sprintf("http://%s:%s%s", SanitizeName(newOwner.Label), strconv.Itoa(newOwnerPort), edge.Endpoint),
+					Method: edge.Properties.Method,	
+				},
+			}
+			graphStruct.Edges = append(graphStruct.Edges, newEdge)
+			// Remove the call from the file of the node and add it to the file of the new owner.
+			sourceNode, err := graphparsing.GetNodeById(graphStruct, edge.Source)
+			if err != nil {
+				return graphparsing.Node{}, graphparsing.Graph{}, fmt.Errorf("error getting source node: %v", err)
+			}
+			err = RemoveCallToService(sourceNode, node, basePath)
+			if err != nil {
+				return graphparsing.Node{}, graphparsing.Graph{}, fmt.Errorf("error removing call to service: %v", err)
+			}
+			// Add the call to the new owner.
+			err = HandleCallFromNode(sourceNode, newOwner, newEdge, basePath)
+			if err != nil {
+				return graphparsing.Node{}, graphparsing.Graph{}, fmt.Errorf("error handling call from node: %v", err)
+			}
+		}
+	}
+	return node, graphStruct, nil
+}
 
 // This function handles the special case of edges towards DatabaseNodes. Since these nodes might not have typical "main" files or incoming/outgoing call logic, we can represent the DB call by injecting environment variables or configuration files into the source node's service to represent the database connection details (e.g., host, port, credentials). This is a simplified representation and can be expanded based on specific requirements.
 func handleCallToDBNode(sourceNode *graphparsing.Node, targetNode *graphparsing.Node, edge graphparsing.Edge, lang string, basePath string) error {
@@ -678,6 +772,8 @@ func handleCallToDBNode(sourceNode *graphparsing.Node, targetNode *graphparsing.
 		// If it's HTML or plain text, a DB call doesn't make sense, so we skip
 		return nil
 	}
+	sourceNode.Label = SanitizeName(sourceNode.Label)
+	targetNode.Label = SanitizeName(targetNode.Label)
 
 	// 2. Read the existing main file content of the SOURCE service
 	mainFilePath := filepath.Join(basePath, sourceNode.Label, "main"+ext)
@@ -729,7 +825,7 @@ func handleCallToDBNode(sourceNode *graphparsing.Node, targetNode *graphparsing.
 
 
 // Load the dockerfile template for the given language and replace placeholders
-func loadDockerfileTemplate(lang string, serviceName string) (string, error) {
+func loadDockerfileTemplate(lang string, serviceName string, port string) (string, error) {
     templatePath := filepath.Join("public", "templates", lang, lang+".dockerfile.template")
     data, err := os.ReadFile(templatePath)
     if err != nil {
@@ -738,6 +834,7 @@ func loadDockerfileTemplate(lang string, serviceName string) (string, error) {
     
     content := string(data)
     content = strings.ReplaceAll(content, "{{SERVICE_NAME}}", serviceName)
+    content = strings.ReplaceAll(content, "{{PORT}}", port)
     return content, nil
 }
 
@@ -823,9 +920,15 @@ func CreateBasicFileFromNode(node graphparsing.Node, basePath string) error {
 	}
 
 	generateMagnitudeFiles(serviceDir, node.Properties.OrderOfMagnitudeOfFiles, ext)
-
+	
+	var port int
+	if node.Properties.Port != "" {
+		port, _ = strconv.Atoi(node.Properties.Port)
+	} else {
+		port = 8080 
+	}
 	// 3. Load and write Dockerfile
-	dockerContent, err := loadDockerfileTemplate(lang, node.Label)
+	dockerContent, err := loadDockerfileTemplate(lang, node.Label, strconv.Itoa(port))
 	if err == nil {
 		os.WriteFile(filepath.Join(serviceDir, "Dockerfile"), []byte(dockerContent), 0644)
 	}
@@ -845,12 +948,7 @@ func CreateBasicFileFromNode(node graphparsing.Node, basePath string) error {
 	}
 
 	// 5. Determine Port and Watch Settings
-	var port int
-	if node.Properties.Port != "" {
-		port, _ = strconv.Atoi(node.Properties.Port)
-	} else {
-		port = 8080 
-	}
+	
 
 	// FIX: Use the specific types.WatchAction type
 	var watchAction types.WatchAction
@@ -1443,6 +1541,7 @@ func LoopUntilServicesStable(repoPath string, targetServices []string) error {
 
 	return fmt.Errorf("timeout: services %v failed to stabilize after recreate", targetServices)
 }
+
 
 // CheckSpecificServicesRunning verifies only the services in the target list.
 func CheckSpecificServicesRunning(repoPath string, targetServices []string) error {

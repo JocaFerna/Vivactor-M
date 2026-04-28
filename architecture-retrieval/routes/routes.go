@@ -12,6 +12,7 @@ import (
 	microserviceGreedyRefactor "architecture-retrieval/refactor/microserviceGreedy"
 	tooManyStandardsRefactor "architecture-retrieval/refactor/tooManyStandards"
 	nonAPIGatewayRefactor "architecture-retrieval/refactor/nonAPIGateway"
+	innapropriateServiceIntimacityRefactor "architecture-retrieval/refactor/innapropriateServiceIntimacity"
 
 
 	"architecture-retrieval/smells/apiNonVersioned"
@@ -72,6 +73,7 @@ func Register() {
 		"/refactor/mitigateMicroserviceGreedySmells": microserviceGreedyRefactorHandler,
 		"/refactor/mitigateTooManyStandardsSmells": tooManyStandardsRefactorHandler,
 		"/refactor/mitigateNonAPIGatewaySmells": nonAPIGatewayRefactorHandler,
+		"/refactor/innapropriateServiceIntimacity": inapropriateServiceIntimacityRefactorHandler,
 	}
 
 	for route, handler := range routes {
@@ -83,6 +85,31 @@ func Register() {
 
 func home(writer http.ResponseWriter, request *http.Request) {
 	fmt.Fprintf(writer, "{\"message\": \"Hello World\"}")
+}
+
+// Refactor of Innapropriate Service Intimacity -> Handling of the route
+func inapropriateServiceIntimacityRefactorHandler(writer http.ResponseWriter, request *http.Request) {
+	log.Println("Received mitigate inapropriate service intimacity smells request")
+	graph := request.URL.Query().Get("graph")
+	innapropriateServiceIntimacitySmells := request.URL.Query().Get("innapropriateServiceIntimacitySmells")
+	// Remove [ and ] from the inapropriateServiceIntimacitySmells string
+	innapropriateServiceIntimacitySmells = strings.TrimPrefix(innapropriateServiceIntimacitySmells, "[")
+	innapropriateServiceIntimacitySmells = strings.TrimSuffix(innapropriateServiceIntimacitySmells, "]")
+	// String's itself contain commas, so we need to split by "],[" instead of just ","
+	innapropriateServiceIntimacitySmellsList := strings.Split(innapropriateServiceIntimacitySmells, "\",\"")
+	fmt.Printf("Innapropriate Service Intimacity Smells: %v\n", innapropriateServiceIntimacitySmellsList)
+	graphRefactored, err := innapropriateServiceIntimacityRefactor.MitigateInnapropriateServiceIntimacity(graph, innapropriateServiceIntimacitySmellsList)
+	if err != nil {
+		log.Printf("Error mitigating inapropriate service intimacity smells: %s\n", err.Error())
+		writer.WriteHeader(http.StatusInternalServerError)
+		writer.Write([]byte("{\"message\": \"Error mitigating inapropriate service intimacity smells\"}"))
+		return
+	} else {
+		// Return 200 OK
+		writer.WriteHeader(http.StatusOK)
+		writer.Write([]byte("{\"message\": \"Mitigating inapropriate service intimacity smells...\", \"graph\": " + graphRefactored + "}"))
+		return
+	}
 }
 
 // Refactor of Non API Versioned -> Handling of the route

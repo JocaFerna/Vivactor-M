@@ -37,12 +37,17 @@
             "properties": {
                 "language": "html",
                 "orderOfMagnitudeOfFiles": "10^0",
-                "port": "8080"
+                "port": "80"
             }
         },
         {
             "id": "5",
             "label": "database-common",
+            "type": "DatabaseNode"
+        },
+        {
+            "id": "6",
+            "label": "orders-service-db",
             "type": "DatabaseNode"
         }
     ],
@@ -106,7 +111,7 @@
             "target": "4",
             "endpoint": "/some",
             "properties": {
-                "callDefinitionInSource":"http://shipping-service:8080/some",
+                "callDefinitionInSource":"http://shipping-service:80/some",
                 "method": "GET"
             }
         },
@@ -115,8 +120,26 @@
             "target": "4",
             "endpoint": "/some-other",
             "properties": {
-                "callDefinitionInSource":"http://shipping-service:8080/some-other",
+                "callDefinitionInSource":"http://shipping-service:80/some-other",
                 "method": "POST"
+            }
+        },
+        {
+            "source": "2",
+            "target": "6",
+            "endpoint": "/db/endpoint4",
+            "properties": {
+                "callDefinitionInSource":"postgresql://orders-service-db:5432/mydb",
+                "method": "SQL"
+            }
+        },
+        {
+            "source": "1",
+            "target": "6",
+            "endpoint": "/db/endpoint5",
+            "properties": {
+                "callDefinitionInSource":"postgresql://orders-service-db:5432/mydb",
+                "method": "SQL"
             }
         }
     ],

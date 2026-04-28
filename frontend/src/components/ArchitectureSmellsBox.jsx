@@ -59,7 +59,11 @@ const ArchitectureSmellsBox = () => {
           } else {
             updates[key] = rawData ? "Detected" : "Not Detected";
           }
-          storeUpdates[`refactoringOf${storeKeyBase}`] = !!rawData;
+          if (updates[key] === "Non Available") {
+            storeUpdates[`refactoringOf${storeKeyBase}`] = false;
+          } else {
+            storeUpdates[`refactoringOf${storeKeyBase}`] = !!rawData;
+          }
         } else {
           if (key === 'tooManyStandards') {
             const count = rawData || 0;
