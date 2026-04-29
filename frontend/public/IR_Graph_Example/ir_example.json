@@ -37,7 +37,7 @@
             "properties": {
                 "language": "html",
                 "orderOfMagnitudeOfFiles": "10^0",
-                "port": "8080"
+                "port": "80"
             }
         },
         {
@@ -106,7 +106,7 @@
             "target": "4",
             "endpoint": "/some",
             "properties": {
-                "callDefinitionInSource":"http://shipping-service:8080/some",
+                "callDefinitionInSource":"http://shipping-service:80/some",
                 "method": "GET"
             }
         },
@@ -115,7 +115,7 @@
             "target": "4",
             "endpoint": "/some-other",
             "properties": {
-                "callDefinitionInSource":"http://shipping-service:8080/some-other",
+                "callDefinitionInSource":"http://shipping-service:80/some-other",
                 "method": "POST"
             }
         }

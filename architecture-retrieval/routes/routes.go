@@ -3,6 +3,7 @@ package routes
 import (
 	"architecture-retrieval/architecture"
 	"architecture-retrieval/architecture/emulation"
+	kill "architecture-retrieval/architecture/kill"
 
 	"architecture-retrieval/refactor/nonAPIVersioned"
 	hardCodedEnpointsRefactor "architecture-retrieval/refactor/hardCodedEndpoints"
@@ -53,6 +54,7 @@ func Register() {
 		"/cloneRepository":  cloneHandler,
 		"/startArchitecture" : startHandler,
 		"/emulateArchitecture" : emulateHandler,
+		"/killArchitecture" : killHandler,
 
 		// Smells Detection
 		"/smells/apiNonVersioned": apiNonVersionedSmellHandler,
@@ -85,6 +87,22 @@ func Register() {
 
 func home(writer http.ResponseWriter, request *http.Request) {
 	fmt.Fprintf(writer, "{\"message\": \"Hello World\"}")
+}
+
+func killHandler(writer http.ResponseWriter, request *http.Request) {
+	log.Println("Received Kill Architecture request")
+	graphStruct := request.URL.Query().Get("graph")
+	updatedGraph, err := kill.KillArchitecture(graphStruct)
+	if err != nil {
+		log.Printf("Error killing architecture: %s\n", err.Error())
+		writer.WriteHeader(http.StatusInternalServerError)
+		writer.Write([]byte("{\"message\": \"Error killing architecture\"}"))
+		return
+	} else {
+		writer.WriteHeader(http.StatusOK)
+		writer.Write([]byte("{\"message\": \"Architecture killed successfully\", \"graph\": " + updatedGraph + "}"))
+		return
+	}
 }
 
 // Refactor of Innapropriate Service Intimacity -> Handling of the route

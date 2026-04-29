@@ -3,6 +3,7 @@ package graphparsing
 import (
 	"encoding/json"
 	"fmt"
+	"path/filepath"
 	"strings"
 )
 type Graph struct{
@@ -137,6 +138,17 @@ func RemoveEdge(edges []Edge, edgeToRemove Edge) []Edge {
 		}
 	}
 	return edges
+}
+// Given a graph, it returns the filepath
+func GetBasePathOfGraph(graphStruct Graph) string {
+	// Get repo
+	repoNameRaw := graphStruct.System.Name
+	repoNameClean := SanitizeName(repoNameRaw)
+
+	graphStruct.System.Name = repoNameClean
+
+	basePath := filepath.Join("/api/downloads", repoNameClean)
+	return basePath
 }
 
 func RemoveNode(graph Graph, nodeToRemove Node) Graph {

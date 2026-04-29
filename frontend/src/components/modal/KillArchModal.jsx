@@ -4,13 +4,13 @@ import { X, CheckCircle2, Loader2 } from 'lucide-react';
 import { useGlobalStore } from '../../store/useGlobalStore';
 
 // 2. Define the logic (Keep it inside or move to a separate service file)
-const emulateSoftware = async () => {
+const killSoftware = async () => {
     try {
         const graphData = useGlobalStore.getState().graphData
         const API_BASE = import.meta.env.VITE_ARCHITECTURAL_URL
         // 1. Build the URL with the correct port
         const params = new URLSearchParams({graph: JSON.stringify(graphData)});
-        const fullUrl = `${API_BASE}/emulateArchitecture?${params.toString()}`;
+        const fullUrl = `${API_BASE}/killArchitecture?${params.toString()}`;
 
         // 2. Make the call
         const response = await fetch(fullUrl);
@@ -20,8 +20,34 @@ const emulateSoftware = async () => {
         } 
         
         //useGlobalStore.setState({ architectureURL: repoUrl }); // Store the URL in global state for later use
-        useGlobalStore.setState({ isArchitectureRunning: true }); // Set the architecture as running in global state
-        useGlobalStore.setState({ isEmulating: true }); // Set the emulation status in global state
+        useGlobalStore.setState({ isArchitectureRunning: false }); // Set the architecture as running in global state
+        useGlobalStore.setState({ isEmulating: false }); // Set the emulation status in global state
+
+        // Set all refactoring flags to false when killing the architecture
+        useGlobalStore.setState({ refactoringOfNonAPIVersioned: false });
+        useGlobalStore.setState({ refactoringOfCyclicDependency: false });
+        useGlobalStore.setState({ refactoringOfEsbUsage: false });
+        useGlobalStore.setState({ refactoringOfHardcodedEndpoints: false });
+        useGlobalStore.setState({ refactoringOfInnapropriateServiceIntimacity: false });
+        useGlobalStore.setState({ refactoringOfMicroserviceGreedy: false });
+        useGlobalStore.setState({ refactoringOfSharedLibraries: false });
+        useGlobalStore.setState({ refactoringOfSharedPersistency: false });
+        useGlobalStore.setState({ refactoringOfWrongCuts: false });
+        useGlobalStore.setState({ refactoringOfTooManyStandards: false });
+        useGlobalStore.setState({ refactoringOfNoAPIGateway: false });
+
+        // Set data related to refactorings to null as well
+        useGlobalStore.setState({ refactoringOfNonAPIVersionedJSON: null });
+        useGlobalStore.setState({ refactoringOfCyclicDependencyJSON: null });
+        useGlobalStore.setState({ refactoringOfEsbUsageJSON: null });
+        useGlobalStore.setState({ refactoringOfHardcodedEndpointsJSON: null });
+        useGlobalStore.setState({ refactoringOfInnapropriateServiceIntimacityJSON: null });
+        useGlobalStore.setState({ refactoringOfMicroserviceGreedyJSON: null });
+        useGlobalStore.setState({ refactoringOfSharedLibrariesJSON: null });
+        useGlobalStore.setState({ refactoringOfSharedPersistencyJSON: null });
+        useGlobalStore.setState({ refactoringOfWrongCutsJSON: null });
+        useGlobalStore.setState({ refactoringOfTooManyStandardsJSON: null });
+        useGlobalStore.setState({ refactoringOfNoAPIGatewayJSON: null }); 
 
         const result = await response.json();
       } catch (error) {
@@ -30,7 +56,7 @@ const emulateSoftware = async () => {
       }
 };
 
-const EmulateArchModal = ({ isOpen, onClose }) => {
+const KillArchModal = ({ isOpen, onClose }) => {
   const [status, setStatus] = useState('idle'); // idle | loading | success
 
   if (!isOpen) return null;
@@ -41,7 +67,7 @@ const EmulateArchModal = ({ isOpen, onClose }) => {
 
     
 
-    emulateSoftware()
+    killSoftware()
       .then(() => setStatus('success'))
       .catch(() => {
         setStatus('failed');
@@ -65,8 +91,8 @@ const EmulateArchModal = ({ isOpen, onClose }) => {
           // Added flex-grow and justify-center to keep the success message centered in the taller modal
           <div className="text-center py-4 animate-in zoom-in duration-300 flex-grow flex flex-col justify-center">
             <CheckCircle2 size={48} className="text-green-500 mx-auto mb-4" />
-            <h2 className="text-xl font-bold text-slate-800">Architecture Emulated</h2>
-            <p className="text-slate-600 mt-2">Your microservices map is running.</p>
+            <h2 className="text-xl font-bold text-slate-800">Architecture Killed</h2>
+            <p className="text-slate-600 mt-2">Your microservices map has been stopped.</p>
             <button onClick={handleClose} className="mt-6 w-full bg-slate-900 text-white py-2 rounded-md hover:bg-slate-800">
               Got it
             </button>
@@ -84,7 +110,7 @@ const EmulateArchModal = ({ isOpen, onClose }) => {
               >
                 <X size={200} className="text-red-500 mx-auto mb-8" />
               </motion.div>
-            <h2 className="text-xl font-bold text-slate-800">Failed to Start</h2>
+            <h2 className="text-xl font-bold text-slate-800">Failed to Kill</h2>
             <p className="text-slate-600 mt-2">Please check your graph.</p>
             <button onClick={handleClose} className="mt-6 w-full bg-slate-900 text-white py-2 rounded-md hover:bg-slate-800">
               Close
@@ -92,17 +118,17 @@ const EmulateArchModal = ({ isOpen, onClose }) => {
           </div>
         ) : (
           <>
-            <h2 className="text-xl font-bold text-slate-800 mb-4">Emulate Architecture</h2>
+            <h2 className="text-xl font-bold text-slate-800 mb-4">Kill Architecture</h2>
             {/* Added flex-grow to the form so it fills the available space */}
             <form onSubmit={handleSubmit} className="space-y-4 flex-grow flex flex-col">
               {/* Labels for the textareas */}
-              <label className="text-sm font-medium text-slate-700">This will emulate the architecture, with abstracted template files, based on the graph provided!</label>
+              <label className="text-sm font-medium text-slate-700">This will kill the architecture, stopping all running services!</label>
               <button
                 disabled={status === 'loading'}
                 className="w-full bg-blue-600 text-white py-3 rounded-md flex items-center justify-center gap-2 hover:bg-blue-700 disabled:bg-blue-400 mt-auto"
               >
                 {status === 'loading' && <Loader2 size={18} className="animate-spin" />}
-                {status === 'loading' ? "Processing..." : "Confirm Emulation"}
+                {status === 'loading' ? "Processing..." : "Confirm Kill"}
               </button>
             </form>
           </>
@@ -112,4 +138,4 @@ const EmulateArchModal = ({ isOpen, onClose }) => {
   );
 };
 
-export default EmulateArchModal;
+export default KillArchModal;

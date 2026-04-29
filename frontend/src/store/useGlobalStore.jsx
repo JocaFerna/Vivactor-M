@@ -7,6 +7,7 @@ export const useGlobalStore = create((set) => ({
     graphJSONRaw : null,
     isFetching: false,
     isArchitectureRunning: false,
+    isEmulating: false,
 
     // Refactoring flags
     refactoringOfNonAPIVersioned: false,

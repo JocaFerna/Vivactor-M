@@ -2,38 +2,51 @@ import React, { useEffect, useState, useCallback, useRef } from 'react';
 import { useGlobalStore } from '../store/useGlobalStore';
 import { Info } from 'lucide-react';
 
+// Define the initial/reset state outside the component for stability
+const INITIAL_SMELLS = {
+  nonAPIVersioned: "N/A",
+  cyclicDependency: "N/A",
+  esbUsage: "N/A",
+  hardcodedEndpoints: "N/A",
+  innapropriateServiceIntimacity: "N/A",
+  microserviceGreedy: "N/A",
+  sharedLibraries: "N/A",
+  sharedPersistency: "N/A",
+  wrongCuts: "N/A",
+  tooManyStandards: "N/A",
+  noAPIGateway: "N/A"
+};
+
 const ArchitectureSmellsBox = () => {
-  // 1. Stable selectors from Zustand
+  // 1. Selectors from Zustand
   const isArchitectureRunning = useGlobalStore((state) => state.isArchitectureRunning);
+  const isEmulating = useGlobalStore((state) => state.isEmulating); // <--- Added this
   const graphData = useGlobalStore((state) => state.graphData);
 
   const [hasError, setHasError] = useState(false);
   const [expandedSmells, setExpandedSmells] = useState({});
   const [smellsData, setSmellsData] = useState({});
-  const [smells, setSmells] = useState({
-    nonAPIVersioned: "N/A",
-    cyclicDependency: "N/A",
-    esbUsage: "N/A",
-    hardcodedEndpoints: "N/A",
-    innapropriateServiceIntimacity: "N/A",
-    microserviceGreedy: "N/A",
-    sharedLibraries: "N/A",
-    sharedPersistency: "N/A",
-    wrongCuts: "N/A",
-    tooManyStandards: "N/A",
-    noAPIGateway: "N/A"
-  });
+  const [smells, setSmells] = useState(INITIAL_SMELLS);
 
-  // 2. A ref to prevent overlapping requests (Manual Lock)
   const isFetchingRef = useRef(false);
 
   const toggleInfo = (key) => {
     setExpandedSmells(prev => ({ ...prev, [key]: !prev[key] }));
   };
 
+  // --- NEW: Reset logic when isEmulating is false ---
+  useEffect(() => {
+    if (!isEmulating) {
+      setSmells(INITIAL_SMELLS);
+      setSmellsData({});
+      setExpandedSmells({});
+      setHasError(false);
+    }
+  }, [isEmulating]);
+
   const fetchSmells = useCallback(async () => {
-    // Prevent overlapping calls if a request is already in flight
-    if (isFetchingRef.current || !graphData) return;
+    // Also stop fetching if we are not emulating
+    if (isFetchingRef.current || !graphData || !isEmulating) return;
 
     try {
       isFetchingRef.current = true;
@@ -47,7 +60,6 @@ const ArchitectureSmellsBox = () => {
 
       const updates = {};
       const dataUpdates = {};
-      // Object to batch all Zustand updates into ONE single call
       const storeUpdates = {};
 
       const processSmell = (key, rawData, isBoolean = false) => {
@@ -59,11 +71,7 @@ const ArchitectureSmellsBox = () => {
           } else {
             updates[key] = rawData ? "Detected" : "Not Detected";
           }
-          if (updates[key] === "Non Available") {
-            storeUpdates[`refactoringOf${storeKeyBase}`] = false;
-          } else {
-            storeUpdates[`refactoringOf${storeKeyBase}`] = !!rawData;
-          }
+          storeUpdates[`refactoringOf${storeKeyBase}`] = updates[key] === "Non Available" ? false : !!rawData;
         } else {
           if (key === 'tooManyStandards') {
             const count = rawData || 0;
@@ -72,8 +80,7 @@ const ArchitectureSmellsBox = () => {
             dataUpdates[key] = isSmell ? rawData : null;
             storeUpdates[`refactoringOf${storeKeyBase}`] = isSmell;
             storeUpdates[`refactoringOf${storeKeyBase}JSON`] = rawData;
-          }
-           else {
+          } else {
             const count = rawData ? (Array.isArray(rawData) ? rawData.length : Object.keys(rawData).length) : 0;
             const isSmell = count > 0;
             updates[key] = isSmell ? count : "Not Detected";
@@ -97,14 +104,10 @@ const ArchitectureSmellsBox = () => {
         processSmell('tooManyStandards', result.smells.tooManyStandards);
         processSmell('noAPIGateway', result.smells.noAPIGateway, true);
 
-        // Turn off running state if report is received
         storeUpdates.isArchitectureRunning = false;
       }
 
-      // 3. Batch apply to Store (One re-render)
       useGlobalStore.setState(storeUpdates);
-      
-      // 4. Update local state
       setSmells(updates);
       setSmellsData(dataUpdates);
       setHasError(false);
@@ -115,21 +118,21 @@ const ArchitectureSmellsBox = () => {
     } finally {
       isFetchingRef.current = false;
     }
-  }, [graphData]); // Now only recreates if graphData actually changes
+  }, [graphData, isEmulating]);
 
   useEffect(() => {
     let interval = null;
-    if (isArchitectureRunning) {
-      // Execute once immediately
+    // Only fetch if both are true
+    if (isArchitectureRunning && isEmulating) {
       fetchSmells();
-      // Set interval for subsequent calls
       interval = setInterval(fetchSmells, 10000);
     }
     return () => {
       if (interval) clearInterval(interval);
     };
-  }, [isArchitectureRunning, fetchSmells]);
+  }, [isArchitectureRunning, isEmulating, fetchSmells]);
 
+  // (Helper renderInfoContent remains the same...)
   const renderInfoContent = (data) => {
     if (!data) return null;
     if (Array.isArray(data)) {
@@ -159,6 +162,7 @@ const ArchitectureSmellsBox = () => {
       w-80 max-h-[500px] flex flex-col
       bg-slate-900 border ${hasError ? 'border-red-500' : 'border-slate-700'} 
       rounded-lg shadow-2xl text-white z-50 transition-all duration-300
+      ${!isEmulating ? 'opacity-50 grayscale-[0.5]' : 'opacity-100'}
     `}>  
       <div className="flex items-center justify-between p-4 border-b border-slate-700 bg-slate-900 rounded-t-lg">
         <h3 className={`text-sm font-bold uppercase tracking-wider ${hasError ? 'text-red-500' : 'text-red-400'}`}>

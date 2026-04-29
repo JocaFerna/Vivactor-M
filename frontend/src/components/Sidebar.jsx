@@ -1,7 +1,8 @@
 import React, { useState, useMemo } from 'react';
 import { 
   ChevronLeft, Upload, FileText, Play, Waypoints, 
-  Link, PackageSearch, Boxes, Repeat, Zap, Computer
+  Link, PackageSearch, Boxes, Repeat, Zap, Computer, X,
+  Save
 } from 'lucide-react';
 import { useGlobalStore } from '../store/useGlobalStore';
 
@@ -11,6 +12,8 @@ import StartArchModal from './modal/StartArchModal';
 import RefactorModal from './modal/RefactorModal';
 import LoadArchJsonModal from './modal/LoadArchJsonModal';
 import EmulateArchModal from './modal/EmulateArchModal';
+import KillArchModal from './modal/KillArchModal';
+import SaveArchModalJson from './modal/SaveArchModalJson';
 
 const NavItem = ({ icon, title, onClick, open, active, gap, variant = "default" }) => (
   <li
@@ -38,7 +41,13 @@ const Sidebar = () => {
   const [isLoadModalJsonOpen, setIsLoadModalJsonOpen] = useState(false);
   const [isEmulateModalOpen, setIsEmulateModalOpen] = useState(false);
   const [isStartModalOpen, setIsStartModalOpen] = useState(false);
-  
+  const [isKillModalOpen, setIsKillModalOpen] = useState(false);
+  const [isSaveModalOpen, setIsSaveModalOpen] = useState(false);
+
+  // isArchitectureRunning checked.
+  const isArchitectureRunning = useGlobalStore((state) => state.isArchitectureRunning);
+  const isEmulating = useGlobalStore((state) => state.isEmulating);
+
   // Combined Refactor Modal State
   const [refactorConfig, setRefactorConfig] = useState({ isOpen: false, type: "" });
 
@@ -180,6 +189,25 @@ const Sidebar = () => {
             />
           )}
 
+          {/* Save/Export*/}
+          {graphData?.nodes?.length > 0 && (
+            <NavItem 
+              icon={<Save size={20} />} 
+              title="Save Architecture" 
+              open={open} 
+              onClick={() => setIsSaveModalOpen(true)} 
+            />
+          )}
+
+          {isEmulating && (
+            <NavItem 
+              icon={<X size={20} className="text-grey-500" />} 
+              title="Kill Architecture" 
+              open={open} 
+              onClick={() => setIsKillModalOpen(true)} 
+            />
+          )}
+
           {/* DYNAMIC REFACTORING SECTION */}
           {activeRefactors.length > 0 && (
             <>
@@ -217,7 +245,8 @@ const Sidebar = () => {
       <LoadArchJsonModal isOpen={isLoadModalJsonOpen} onClose={() => setIsLoadModalJsonOpen(false)} />
       <StartArchModal isOpen={isStartModalOpen} onClose={() => setIsStartModalOpen(false)} />
       <EmulateArchModal isOpen={isEmulateModalOpen} onClose={() => setIsEmulateModalOpen(false)} />
-      
+      <KillArchModal isOpen={isKillModalOpen} onClose={() => setIsKillModalOpen(false)} />
+      <SaveArchModalJson isOpen={isSaveModalOpen} onClose={() => setIsSaveModalOpen(false)} />
       {/* Universal Refactor Modal */}
       <RefactorModal 
         isOpen={refactorConfig.isOpen} 
