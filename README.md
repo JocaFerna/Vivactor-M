@@ -12,19 +12,18 @@ Vivactor-M is a specialized tool designed to facilitate real-time microservices 
 ## Requirements
 
 - Docker
+- Docker Compose
 
 ## 📥 Installation and Usage
-
-1. **Insert your own API Key of Gemini at ./architecture-retrieval/.env, like this**:
-```bash
-GEMINI_API_KEY=blahblahblah...
-```
-
 1. **Clone the repository:**
 ```bash
 git clone https://github.com/JocaFerna/Vivactor-M.git
 ```
-2. **Start all the software**
+2. **Insert your own API Key of Gemini at ./architecture-retrieval/.env, like this**:
+```bash
+GEMINI_API_KEY=blahblahblah...
+```
+3. **Start all the software**
 ```bash
 ./start_scripts/start_architecture.sh
 ```
@@ -66,4 +65,4 @@ sudo chmod +x ./help_scripts/docker_clear_by_force.sh
 **João Fernandes (JocaFerna)**
 
 * GitHub: [@JocaFerna](https://www.google.com/search?q=https://github.com/JocaFerna)
-* Project Link: [https://github.com/JocaFerna/LiveRefactoringTool](https://github.com/JocaFerna/LiveRefactoringTool)
+* Project Link: [https://github.com/JocaFerna/Vivactor-M](https://github.com/JocaFerna/Vivactor-M)
