@@ -49,42 +49,56 @@ func GenerateAPIGatewayFromNode(apiNode graphparsing.Node, basePath string) erro
 	}
 	return nil
 }
-func StartServiceFromNode(node graphparsing.Node,graph graphparsing.Graph, basePath string) error {
-	
-	// Start the new service using docker compose
-	cmd := exec.Command("docker", "compose", "up", "-d", SanitizeName(node.Label))
-	cmd.Dir = basePath
-	cmd.Stderr = os.Stderr
-	err := cmd.Run()
-	if err != nil {
-		return fmt.Errorf("error starting API gateway service: %v", err)
-	}
+func StartServiceFromNode(node graphparsing.Node, graph graphparsing.Graph, basePath string) error {
+    serviceName := SanitizeName(node.Label)
 
-	// Refresh the project lock to ensure it reflects the new language and dependencies
-    err = CleanProjectLock(basePath)
+    // 2. Refresh the project lock
+    err := CleanProjectLock(basePath)
     if err != nil {
         log.Printf("Warning: failed to clean project lock: %v", err)
     }
 
-    //Start the watch process again in the background
-    watchCmd := exec.Command("docker", "compose", "watch")
-    watchCmd.Dir = basePath
-	watchCmd.Stderr = os.Stderr
-    if err := watchCmd.Start(); err != nil {
-        return fmt.Errorf("failed to restart docker compose watch: %w", err)
+    // 3. EXPLICIT STOP: This prevents the "container is running" daemon error.
+    // We stop the service specifically before trying to recreate it.
+    log.Printf("Stopping service %s to prevent daemon collisions...", serviceName)
+    stopCmd := exec.Command("docker", "compose", "stop", serviceName)
+    stopCmd.Dir = basePath
+    stopCmd.Run() // We don't strictly need to check error here, as it might already be stopped.
+
+    // 4. Start/Recreate the service
+    // --force-recreate: Ensures Docker doesn't try to "reuse" the busy container
+    // --build: Ensures the injected dummy code is actually baked into the image
+    log.Printf("Starting/Recreating service: %s", serviceName)
+    cmd := exec.Command("docker", "compose", "up", "-d", "--build", "--force-recreate", serviceName)
+    cmd.Dir = basePath
+    // cmd.Stdout = os.Stdout
+    cmd.Stderr = os.Stderr
+    if err := cmd.Run(); err != nil {
+        return fmt.Errorf("error recreating service %s: %v", serviceName, err)
+    }
+	
+    // 5. Check health (Using your existing LoopUntilHealthy)
+    expectedServices := make(map[string]int)
+    for _, n := range graph.Nodes {
+        expectedServices[SanitizeName(n.Label)] = 1
+    }
+    
+    log.Println("Waiting for architecture to reach healthy state...")
+    err = LoopUntilHealthy(basePath, expectedServices, time.Now())
+    if err != nil {
+        return fmt.Errorf("architecture failed to stabilize: %v", err)
     }
 
-	// Check health to ensure the architecture is stable after changes
-	expectedServices := make(map[string]int)
-	for _, node := range graph.Nodes {
-		expectedServices[SanitizeName(node.Label)] = 1
-	}
-	err = LoopUntilHealthy(basePath, expectedServices, time.Now())
-	if err != nil {
-		return fmt.Errorf("error achieving healthy state after language change: %v", err)
-	}
+    // 6. Restart the watch process in the background
+    // Now that the containers are healthy, watch can safely take over for real-time dev
+    log.Println("Restarting docker compose watch...")
+    watchCmd := exec.Command("docker", "compose", "watch")
+    watchCmd.Dir = basePath
+    if err := watchCmd.Start(); err != nil {
+        log.Printf("Warning: failed to restart docker compose watch: %v", err)
+    }
 
-	return nil
+    return nil
 }
 
 func ReadFileContent(filePath string) (string, error) {

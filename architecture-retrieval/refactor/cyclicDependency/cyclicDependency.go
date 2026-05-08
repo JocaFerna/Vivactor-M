@@ -1,4 +1,4 @@
-package nonAPIGateway
+package cyclicDependency
 
 import (
 	graphparsing "architecture-retrieval/architecture/graphParsing"
@@ -9,8 +9,8 @@ import (
 	"time"
 )
 
-func MitigateNonAPIGateway(graphString string, selectedNodes []string) (string, error){
-// Parse the graph from JSON
+func MitigateCyclicDependency(graphString string, selectedNodes []string) (string, error){
+	// Parse the graph from JSON
 	graph, err := graphparsing.ParseGraph(graphString)
 	if err != nil {
 		return "", err

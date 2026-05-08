@@ -14,6 +14,7 @@ import (
 	tooManyStandardsRefactor "architecture-retrieval/refactor/tooManyStandards"
 	nonAPIGatewayRefactor "architecture-retrieval/refactor/nonAPIGateway"
 	innapropriateServiceIntimacityRefactor "architecture-retrieval/refactor/innapropriateServiceIntimacity"
+	cyclicDependencyRefactor "architecture-retrieval/refactor/cyclicDependency"
 
 
 	"architecture-retrieval/smells/apiNonVersioned"
@@ -76,6 +77,7 @@ func Register() {
 		"/refactor/mitigateTooManyStandardsSmells": tooManyStandardsRefactorHandler,
 		"/refactor/mitigateNonAPIGatewaySmells": nonAPIGatewayRefactorHandler,
 		"/refactor/innapropriateServiceIntimacity": inapropriateServiceIntimacityRefactorHandler,
+		"/refactor/mitigateCyclicDependencySmells": cyclicDependencyRefactorHandler,
 	}
 
 	for route, handler := range routes {
@@ -87,6 +89,31 @@ func Register() {
 
 func home(writer http.ResponseWriter, request *http.Request) {
 	fmt.Fprintf(writer, "{\"message\": \"Hello World\"}")
+}
+
+// Cyclic Dependency -> Handling of the route
+func cyclicDependencyRefactorHandler(writer http.ResponseWriter, request *http.Request) {
+	log.Println("Received mitigate cyclic dependency smells request")
+	graph := request.URL.Query().Get("graph")
+	cyclicDependencySmells := request.URL.Query().Get("cyclicDependencySmells")
+	// Remove [ and ] from the cyclicDependencySmells string
+	cyclicDependencySmells = strings.TrimPrefix(cyclicDependencySmells, "[")
+	cyclicDependencySmells = strings.TrimSuffix(cyclicDependencySmells, "]")
+	// String's itself contain commas, so we need to split by "],[" instead of just ","
+	cyclicDependencySmellsList := strings.Split(cyclicDependencySmells, ",")
+	fmt.Printf("Cyclic Dependency Smells: %v\n", cyclicDependencySmellsList)
+	graphRefactored, err := cyclicDependencyRefactor.MitigateCyclicDependency(graph, cyclicDependencySmellsList)
+	if err != nil {
+		log.Printf("Error mitigating cyclic dependency smells: %s\n", err.Error())
+		writer.WriteHeader(http.StatusInternalServerError)
+		writer.Write([]byte("{\"message\": \"Error mitigating cyclic dependency smells\"}"))
+		return
+	} else {
+		// Return 200 OK
+		writer.WriteHeader(http.StatusOK)
+		writer.Write([]byte("{\"message\": \"Mitigating cyclic dependency smells...\", \"graph\": " + graphRefactored + "}"))
+		return
+	}
 }
 
 func killHandler(writer http.ResponseWriter, request *http.Request) {

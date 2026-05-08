@@ -27,6 +27,7 @@ const refactorSoftware = async (repoUrl, refactorType, selectedApis) => {
             case "tooManyStandards": endpoint = "mitigateTooManyStandardsSmells"; paramKey = "tooManyStandardsSmells"; break;
             case "noAPIGateway": endpoint = "mitigateNonAPIGatewaySmells"; paramKey = "noAPIGatewaySmells"; break;
             case "innapropriateServiceIntimacity": endpoint = "innapropriateServiceIntimacity"; paramKey = "innapropriateServiceIntimacitySmells"; break;
+            case "cyclicDependency": endpoint = "mitigateCyclicDependencySmells"; paramKey = "cyclicDependencySmells"; break;
             default: return;
         }
 
@@ -118,7 +119,8 @@ const RefactorModal = ({ isOpen, onClose, typeOfRefactor }) => {
             sharedLibraries: "Library Coupling",
             sharedPersistency: "Database Sharing",
             noAPIGateway: "API Gateway Integration",
-            innapropriateServiceIntimacity: "Innapropriate Service Intimacy"
+            innapropriateServiceIntimacity: "Innapropriate Service Intimacy",
+            cyclicDependency: "Cyclic Dependency"
         };
         return titles[typeOfRefactor] || "Architecture Refactor";
     };
