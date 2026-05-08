@@ -61,20 +61,7 @@ services:
       - "traefik.enable=true"
       - "traefik.http.routers.arch.rule=Host(`architecture.localhost`)"
       - "traefik.http.services.arch.loadbalancer.server.port=8000"
-
-  code2dfd:
-    build: 
-      context: ./code2DFD
-      dockerfile: Dockerfile 
-    ports:  
-      - "5001:5001" # Assuming your backend runs on port 5001
-    volumes:
-      - ./code2DFD:/app
-      - ./repositories/downloads:/app/downloads
-    env_file:
-      - dev.env
-    networks:
-      - shared_network
+    
 volumes:
   nix_data:
 networks:
