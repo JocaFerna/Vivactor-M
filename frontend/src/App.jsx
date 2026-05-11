@@ -6,7 +6,7 @@ import AddGraphElement from './components/graph_manipulation/AddGraphElement';
 import UpdateArchModal from './components/modal/UpdateArchModal';
 import { useGlobalStore } from './store/useGlobalStore';
 import { motion, AnimatePresence } from "motion/react";
-import { Loader2 } from "lucide-react";
+import { Loader2, Activity, PowerOff, ShieldCheck } from "lucide-react";
 
 /**
  * FIXED: Reactive Indicator Component
@@ -50,6 +50,50 @@ const UpdatingIndicator = () => {
   );
 };
 
+const EmulationStatusBadge = () => {
+  const isEmulating = useGlobalStore((state) => state.isEmulating);
+
+  return (
+    <div className="fixed top-6 left-76 z-[40] transition-all duration-500">
+      <motion.div
+        initial={false}
+        animate={{
+          backgroundColor: isEmulating ? "rgba(16, 185, 129, 0.1)" : "rgba(100, 116, 139, 0.1)",
+          borderColor: isEmulating ? "rgba(16, 185, 129, 0.4)" : "rgba(100, 116, 139, 0.2)",
+        }}
+        className={`flex items-center gap-2 px-3 py-1.5 rounded-full border backdrop-blur-md shadow-sm`}
+      >
+        <div className="relative flex items-center justify-center">
+          {isEmulating ? (
+            <>
+              <span className="absolute h-2 w-2 rounded-full bg-emerald-500 animate-ping opacity-75"></span>
+              <Activity size={14} className="text-emerald-500 relative z-10" />
+            </>
+          ) : (
+            <PowerOff size={14} className="text-slate-400" />
+          )}
+        </div>
+
+        <span className={`text-[10px] font-bold uppercase tracking-widest ${
+          isEmulating ? "text-emerald-500" : "text-slate-400"
+        }`}>
+          {isEmulating ? "Live Emulation" : "System Standby"}
+        </span>
+
+        {isEmulating && (
+          <div className="h-3 w-[1px] bg-emerald-500/30 mx-1" />
+        )}
+        
+        {isEmulating && (
+          <span className="text-[9px] text-emerald-400/80 font-medium">
+            Docker Active
+          </span>
+        )}
+      </motion.div>
+    </div>
+  );
+};
+
 function App() {
   // Note: If you are moving graphData to useGlobalStore, 
   // you might eventually want to remove these local states to avoid confusion.
@@ -62,6 +106,9 @@ function App() {
       <Sidebar />
       
       <main className="flex-1 h-screen overflow-y-auto bg-white p-4 relative">
+        {/* Persistent Status Badge */}
+        <EmulationStatusBadge />
+
         <Graph />
         
         <UpdateArchModal />
