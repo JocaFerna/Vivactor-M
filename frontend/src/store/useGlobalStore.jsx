@@ -9,6 +9,13 @@ export const useGlobalStore = create((set) => ({
     isArchitectureRunning: false,
     isEmulating: false,
 
+    // Modal state of update architecture modal
+    isUpdateModalOpen: false,
+    setUpdateModalOpen: (val) => set({ isUpdateModalOpen: val }),
+
+    // Suggestion of update
+    updateSuggestion: false,
+
     // Refactoring flags
     refactoringOfNonAPIVersioned: false,
     refactoringOfCyclicDependency: false,
@@ -34,6 +41,9 @@ export const useGlobalStore = create((set) => ({
     refactoringOfWrongCutsJSON: null,
     refactoringOfTooManyStandardsJSON: null,
     refactoringOfNoAPIGatewayJSON: null,
+
+    // Updating
+    updatingArchitecture: false,
 
     // This is the function you can call from ANY file
     fetchGraphData: async () => {

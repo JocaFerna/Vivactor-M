@@ -2,15 +2,23 @@ import React, { useMemo, useCallback } from 'react';
 
 import { GraphCanvas, lightTheme } from 'reagraph'; 
 import { useGlobalStore } from '../store/useGlobalStore';
+import { triggerArchUpdateWithoutModal } from "./modal/UpdateArchModal"; // Ensure the update logic is imported so it can be triggered from the context menu
 
 const NODE_ICONS = {
     DatabaseNode: 'https://cdn-icons-png.flaticon.com/512/9850/9850774.png',
     BasicNode: 'https://cdn-icons-png.flaticon.com/512/5968/5968267.png',
+    
+    // Standard Languages
     java: 'https://cdn-icons-png.flaticon.com/512/226/226777.png',
     python: 'https://cdn-icons-png.flaticon.com/512/5968/5968350.png',
     javascript: 'https://cdn-icons-png.flaticon.com/512/5968/5968292.png',
     html: 'https://cdn-icons-png.flaticon.com/512/1051/1051277.png',
-    traefik: 'https://cdn.jsdelivr.net/gh/homarr-labs/dashboard-icons/svg/traefik.svg',
+
+    // Specific Gateway Icons (Language + Gateway badge)
+    APIGateway: 'https://cdn-icons-png.flaticon.com/512/1055/1055644.png', // Default Gateway Icon
+    python_gateway: '/public/images/gateway_icons/python_api_gateway.png', // Custom Python Gateway Icon
+    java_gateway: '/public/images/gateway_icons/java_api_gateway_icon.png',
+    javascript_gateway: '/public/images/gateway_icons/javascript_api_gateway.png',
 };
 
 const Graph = () => {
@@ -21,24 +29,40 @@ const Graph = () => {
         useGlobalStore.setState((state) => {
             const newNodes = state.graphData.nodes.filter(n => n.id !== nodeId);
             const newEdges = state.graphData.edges.filter(e => e.source !== nodeId && e.target !== nodeId);
-            return { graphData: { ...state.graphData, nodes: newNodes, edges: newEdges } };
+            return { graphData: { ...state.graphData, nodes: newNodes, edges: newEdges }, updateSuggestion: true };
         });
+        triggerArchUpdateWithoutModal();
     }, []);
 
     const deleteEdge = useCallback((edge) => {
         const newEdges = irData.edges.filter(e => 
             !(e.source === edge.source && e.target === edge.target && e.endpoint === edge.label)
         );
-        useGlobalStore.setState({ graphData: { ...irData, edges: newEdges } });
+        useGlobalStore.setState({ graphData: { ...irData, edges: newEdges }, updateSuggestion: true }); // Set update suggestion to true after deleting an edge
+        triggerArchUpdateWithoutModal();
     }, [irData]);
 
     const { nodes, edges } = useMemo(() => {
         if (!irData?.nodes) return { nodes: [], edges: [] };
-        const formattedNodes = irData.nodes.map((node) => ({
-            id: node.id,
-            label: node.label,
-            icon: NODE_ICONS[node.properties?.language] || NODE_ICONS[node.type] || NODE_ICONS.BasicNode,
-        }));
+        const formattedNodes = irData.nodes.map((node) => {
+            // 1. Determine the icon key
+            const lang = node.properties?.language;
+            const isGateway = node.type === 'APIGateway';
+            
+            // Look for 'java_gateway', then 'java', then the type 'APIGateway', then 'BasicNode'
+            const iconKey = isGateway 
+                ? (`${lang}_gateway` in NODE_ICONS ? `${lang}_gateway` : 'APIGateway')
+                : (lang || node.type);
+
+            return {
+                id: node.id,
+                label: node.label,
+                icon: NODE_ICONS[iconKey] || NODE_ICONS.BasicNode,
+                // 2. Add visual "Gateway" indicator via color/size
+                color: isGateway ? '#3b82f6' : undefined, // Blue glow for Gateways
+                size: isGateway ? 15 : 10, // Make Gateways slightly larger
+            };
+        });
         const formattedEdges = irData.edges.map((edge, idx) => ({
             // FIX: Using source-target-endpoint as a unique ID. 
             // idx-based IDs cause NaN errors when the array order shifts during refactoring!

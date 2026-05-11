@@ -1,0 +1,201 @@
+{
+    "systemContext": {
+        "name": "PiggyMetrics",
+        "description": "A microservices-based personal finances advisor application utilizing Spring Cloud and Netflix OSS.",
+        "servicesSeparatedByBusinessDomain": true,
+        "selfManagedLibraries": [
+            {
+                "name": "piggy-common",
+                "servicesUsingLibrary": [
+                    "account-service",
+                    "statistics-service",
+                    "notification-service",
+                    "auth-service"
+                ]
+            }
+        ]
+    },
+    "nodes": [
+        {
+            "id": "1",
+            "label": "gateway",
+            "type": "APIGateway",
+            "properties": {
+                "language": "java",
+                "orderOfMagnitudeOfFiles": "10^1",
+                "port": "4000"
+            }
+        },
+        {
+            "id": "2",
+            "label": "account-service",
+            "type": "BasicNode",
+            "properties": {
+                "language": "java",
+                "orderOfMagnitudeOfFiles": "10^1",
+                "port": "6000"
+            }
+        },
+        {
+            "id": "3",
+            "label": "statistics-service",
+            "type": "BasicNode",
+            "properties": {
+                "language": "java",
+                "orderOfMagnitudeOfFiles": "10^1",
+                "port": "7000"
+            }
+        },
+        {
+            "id": "4",
+            "label": "notification-service",
+            "type": "BasicNode",
+            "properties": {
+                "language": "java",
+                "orderOfMagnitudeOfFiles": "10^1",
+                "port": "8000"
+            }
+        },
+        {
+            "id": "5",
+            "label": "auth-service",
+            "type": "BasicNode",
+            "properties": {
+                "language": "java",
+                "orderOfMagnitudeOfFiles": "10^1",
+                "port": "5000"
+            }
+        },
+        {
+            "id": "6",
+            "label": "account-mongodb",
+            "type": "DatabaseNode"
+        },
+        {
+            "id": "7",
+            "label": "statistics-mongodb",
+            "type": "DatabaseNode"
+        },
+        {
+            "id": "8",
+            "label": "notification-mongodb",
+            "type": "DatabaseNode"
+        },
+        {
+            "id": "9",
+            "label": "auth-mongodb",
+            "type": "DatabaseNode"
+        },
+        {
+            "id": "10",
+            "label": "config-service",
+            "type": "BasicNode",
+            "properties": {
+                "language": "java",
+                "orderOfMagnitudeOfFiles": "10^1",
+                "port": "8888"
+            }
+        }
+    ],
+    "edges": [
+        {
+            "source": "1",
+            "target": "2",
+            "endpoint": "/accounts",
+            "properties": {
+                "callDefinitionInSource": "http://account-service:6000/accounts",
+                "method": "POST"
+            }
+        },
+        {
+            "source": "1",
+            "target": "5",
+            "endpoint": "/uaa/oauth/token",
+            "properties": {
+                "callDefinitionInSource": "http://auth-service:5000/uaa/oauth/token",
+                "method": "POST"
+            }
+        },
+        {
+            "source": "2",
+            "target": "6",
+            "endpoint": "/mydb",
+            "properties": {
+                "callDefinitionInSource": "jdbc:postgresql://account-mongodb:5432/mydb",
+                "method": "SQL"
+            }
+        },
+        {
+            "source": "2",
+            "target": "3",
+            "endpoint": "/statistics",
+            "properties": {
+                "callDefinitionInSource": "http://statistics-service:7000/statistics",
+                "method": "POST"
+            }
+        },
+        {
+            "source": "3",
+            "target": "7",
+            "endpoint": "/mydb",
+            "properties": {
+                "callDefinitionInSource": "jdbc:postgresql://statistics-mongodb:5432/mydb",
+                "method": "SQL"
+            }
+        },
+        {
+            "source": "4",
+            "target": "8",
+            "endpoint": "/mydb",
+            "properties": {
+                "callDefinitionInSource": "jdbc:postgresql://notification-mongodb:5432/mydb",
+                "method": "SQL"
+            }
+        },
+        {
+            "source": "5",
+            "target": "9",
+            "endpoint": "/mydb",
+            "properties": {
+                "callDefinitionInSource": "jdbc:postgresql://auth-mongodb:5432/mydb",
+                "method": "SQL"
+            }
+        },
+        {
+            "source": "2",
+            "target": "10",
+            "endpoint": "/",
+            "properties": {
+                "callDefinitionInSource": "http://config-service:8888/",
+                "method": "GET"
+            }
+        },
+        {
+            "source": "3",
+            "target": "10",
+            "endpoint": "/config",
+            "properties": {
+                "callDefinitionInSource": "http://config-service:8888/config",
+                "method": "GET"
+            }
+        },
+        {
+            "source": "4",
+            "target": "10",
+            "endpoint": "/config",
+            "properties": {
+                "callDefinitionInSource": "http://config-service:8888/config",
+                "method": "GET"
+            }
+        },
+        {
+            "source": "5",
+            "target": "10",
+            "endpoint": "/config",
+            "properties": {
+                "callDefinitionInSource": "http://config-service:8888/config",
+                "method": "GET"
+            }
+        }
+    ]
+}

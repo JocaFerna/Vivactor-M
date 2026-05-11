@@ -2,7 +2,7 @@ import React, { useState, useMemo } from 'react';
 import { 
   ChevronLeft, Upload, FileText, Play, Waypoints, 
   Link, PackageSearch, Boxes, Repeat, Zap, Computer, X,
-  Save
+  Save, RefreshCw 
 } from 'lucide-react';
 import { useGlobalStore } from '../store/useGlobalStore';
 
@@ -14,6 +14,7 @@ import LoadArchJsonModal from './modal/LoadArchJsonModal';
 import EmulateArchModal from './modal/EmulateArchModal';
 import KillArchModal from './modal/KillArchModal';
 import SaveArchModalJson from './modal/SaveArchModalJson';
+import UpdateArchModal, { triggerArchUpdate } from './modal/UpdateArchModal'; 
 
 const NavItem = ({ icon, title, onClick, open, active, gap, variant = "default" }) => (
   <li
@@ -36,7 +37,7 @@ const NavItem = ({ icon, title, onClick, open, active, gap, variant = "default" 
 const Sidebar = () => {
   const [open, setOpen] = useState(true);
   
-  // Modal States
+  // Local Modal States
   const [isLoadModalOpen, setIsLoadModalOpen] = useState(false);
   const [isLoadModalJsonOpen, setIsLoadModalJsonOpen] = useState(false);
   const [isEmulateModalOpen, setIsEmulateModalOpen] = useState(false);
@@ -44,18 +45,15 @@ const Sidebar = () => {
   const [isKillModalOpen, setIsKillModalOpen] = useState(false);
   const [isSaveModalOpen, setIsSaveModalOpen] = useState(false);
 
-  // isArchitectureRunning checked.
-  const isArchitectureRunning = useGlobalStore((state) => state.isArchitectureRunning);
+  // Zustand Store Selectors
   const isEmulating = useGlobalStore((state) => state.isEmulating);
-
-  // Combined Refactor Modal State
-  const [refactorConfig, setRefactorConfig] = useState({ isOpen: false, type: "" });
-
-  // Store Subscriptions
   const architectureURL = useGlobalStore((state) => state.architectureURL);
   const graphData = useGlobalStore((state) => state.graphData);
+  const updateSuggestion = useGlobalStore((state) => state.updateSuggestion);
   
-  // Smell Flags from Store (Add more here as you implement them)
+  const [refactorConfig, setRefactorConfig] = useState({ isOpen: false, type: "" });
+
+  // Mapping store flags to a flat object for useMemo
   const smellsDetected = {
     nonAPIVersioned: useGlobalStore((state) => state.refactoringOfNonAPIVersioned),
     cyclicDependency: useGlobalStore((state) => state.refactoringOfCyclicDependency), 
@@ -70,7 +68,7 @@ const Sidebar = () => {
     noAPIGateway: useGlobalStore((state) => state.refactoringOfNoAPIGateway),
   };
 
-  // --- REFACTORING LOGIC CONFIGURATION ---
+  // --- REFACTORING LOGIC CONFIGURATION (RESTORED) ---
   const refactorOptions = useMemo(() => [
     {
       id: "nonAPIVersioned",
@@ -102,39 +100,41 @@ const Sidebar = () => {
       icon: <PackageSearch size={20} className="text-red-400" />,
       enabled: smellsDetected.microserviceGreedy,
     },
-     {
+    {
       id: "sharedLibraries",
       title: "Decouple Shared Libraries",
       icon: <Link size={20} className="text-pink-400" />,
-      enabled:  smellsDetected.sharedLibraries,
+      enabled: smellsDetected.sharedLibraries,
     },
-     {
+    {
       id: "sharedPersistency",
       title: "Separate Shared Persistency",
-      icon: <FileText size={20} className="text   -indigo-400" />,
-      enabled:  smellsDetected.sharedPersistency,
+      icon: <FileText size={20} className="text-indigo-400" />,
+      enabled: smellsDetected.sharedPersistency,
     },
-      {
-        id: "wrongCuts",
-        title: "Reevaluate Service Cuts",
-        icon: <Waypoints size={20} className="text-cyan-400" />,
-        enabled: smellsDetected.wrongCuts,
-      },
-      {
-        id: "tooManyStandards",
-        title: "Unify Standards",
-        icon: <Boxes size={20} className="text-orange-400" />,
-        enabled: smellsDetected.tooManyStandards,
-      },
-      {
-        id: "noAPIGateway",
-        title: "Introduce API Gateway",
-        icon: <Link size={20} className="text-gray-400" />,
-        enabled: smellsDetected.noAPIGateway,
-      },
+    {
+      id: "wrongCuts",
+      title: "Reevaluate Service Cuts",
+      icon: <Waypoints size={20} className="text-cyan-400" />,
+      enabled: smellsDetected.wrongCuts,
+    },
+    {
+      id: "tooManyStandards",
+      title: "Unify Standards",
+      icon: <Boxes size={20} className="text-orange-400" />,
+      enabled: smellsDetected.tooManyStandards,
+    },
+    {
+      id: "noAPIGateway",
+      title: "Introduce API Gateway",
+      icon: <Link size={20} className="text-gray-400" />,
+      enabled: smellsDetected.noAPIGateway,
+    },
   ], [smellsDetected]);
 
-  const activeRefactors = refactorOptions.filter(opt => opt.enabled);
+  const activeRefactors = useMemo(() => 
+    refactorOptions.filter(opt => opt.enabled)
+  , [refactorOptions]);
 
   return (
     <div className="flex">
@@ -157,86 +157,59 @@ const Sidebar = () => {
 
         <ul className="pt-6 overflow-y-auto h-[calc(100vh-120px)] custom-scrollbar">
           {/* Section: Project Management */}
-          <NavItem 
-            icon={<Link size={20} />} 
-            title="Load via GITHUB (Legacy)" 
-            open={open}
-            onClick={() => setIsLoadModalOpen(true)} 
-          />
-          <NavItem 
-            icon={<Upload size={20} />} 
-            title="Load via JSON" 
-            open={open} 
-            onClick={() => setIsLoadModalJsonOpen(true)} 
-          />
+          <NavItem icon={<Link size={20} />} title="Load via GITHUB (Legacy)" open={open} onClick={() => setIsLoadModalOpen(true)} />
+          <NavItem icon={<Upload size={20} />} title="Load via JSON" open={open} onClick={() => setIsLoadModalJsonOpen(true)} />
 
           {/* Section: Execution */}
           {architectureURL && (
-            <NavItem 
-              icon={<Play size={20} className="text-green-500" />} 
-              title="Start Architecture" 
-              open={open} 
-              onClick={() => setIsStartModalOpen(true)} 
-            />
+            <NavItem icon={<Play size={20} className="text-green-500" />} title="Start Architecture" open={open} onClick={() => setIsStartModalOpen(true)} />
           )}
 
           {graphData?.nodes?.length > 0 && (
-            <NavItem 
-              icon={<PackageSearch size={20} />} 
-              title="Emulate Architecture" 
-              open={open} 
-              onClick={() => setIsEmulateModalOpen(true)} 
-            />
+            <NavItem icon={<PackageSearch size={20} />} title="Emulate Architecture" open={open} onClick={() => setIsEmulateModalOpen(true)} />
           )}
 
           {/* Save/Export*/}
           {graphData?.nodes?.length > 0 && (
+            <NavItem icon={<Save size={20} />} title="Save Architecture" open={open} onClick={() => setIsSaveModalOpen(true)} />
+          )}
+
+          {/* Update Emulation with Suggestion Animation */}
+          {isEmulating && (
             <NavItem 
-              icon={<Save size={20} />} 
-              title="Save Architecture" 
+              icon={
+                <RefreshCw 
+                  size={20} 
+                  className={`transition-colors duration-500 ${
+                    updateSuggestion 
+                      ? "text-yellow-400 animate-[spin_3s_linear_infinite]" 
+                      : "text-slate-500"
+                  }`} 
+                />
+              }
+              title="Update Emulation" 
               open={open} 
-              onClick={() => setIsSaveModalOpen(true)} 
+              onClick={triggerArchUpdate} 
             />
           )}
 
           {isEmulating && (
-            <NavItem 
-              icon={<X size={20} className="text-grey-500" />} 
-              title="Kill Architecture" 
-              open={open} 
-              onClick={() => setIsKillModalOpen(true)} 
-            />
+            <NavItem icon={<X size={20} className="text-gray-500" />} title="Kill Architecture" open={open} onClick={() => setIsKillModalOpen(true)} />
           )}
 
           {/* DYNAMIC REFACTORING SECTION */}
           {activeRefactors.length > 0 && (
             <>
               <div className={`mt-10 mb-2 ml-2 transition-opacity duration-200 ${!open ? "opacity-0" : "opacity-100"}`}>
-                <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">
-                  Refactorings Detected
-                </p>
+                <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Refactorings Detected</p>
               </div>
               {activeRefactors.map((option) => (
-                <NavItem 
-                  key={option.id}
-                  icon={option.icon} 
-                  title={option.title} 
-                  open={open} 
-                  variant="refactor"
-                  onClick={() => setRefactorConfig({ isOpen: true, type: option.id })} 
-                />
+                <NavItem key={option.id} icon={option.icon} title={option.title} open={open} variant="refactor" onClick={() => setRefactorConfig({ isOpen: true, type: option.id })} />
               ))}
             </>
           )}
 
-          {/* Secondary Items */}
-          <NavItem 
-            gap={activeRefactors.length > 0 ? true : false}
-            icon={<Computer size={20} />} 
-            title="GitHub Repository" 
-            open={open} 
-            onClick={() => window.open('https://github.com/JocaFerna/Vivactor-M', '_blank')} 
-          />
+          <NavItem gap={activeRefactors.length > 0} icon={<Computer size={20} />} title="GitHub Repository" open={open} onClick={() => window.open('https://github.com/JocaFerna/Vivactor-M', '_blank')} />
         </ul>
       </div>
 
@@ -247,12 +220,10 @@ const Sidebar = () => {
       <EmulateArchModal isOpen={isEmulateModalOpen} onClose={() => setIsEmulateModalOpen(false)} />
       <KillArchModal isOpen={isKillModalOpen} onClose={() => setIsKillModalOpen(false)} />
       <SaveArchModalJson isOpen={isSaveModalOpen} onClose={() => setIsSaveModalOpen(false)} />
-      {/* Universal Refactor Modal */}
-      <RefactorModal 
-        isOpen={refactorConfig.isOpen} 
-        onClose={() => setRefactorConfig({ ...refactorConfig, isOpen: false })} 
-        typeOfRefactor={refactorConfig.type}
-      />
+      
+      <UpdateArchModal /> 
+
+      <RefactorModal isOpen={refactorConfig.isOpen} onClose={() => setRefactorConfig({ ...refactorConfig, isOpen: false })} typeOfRefactor={refactorConfig.type} />
     </div>
   );
 };

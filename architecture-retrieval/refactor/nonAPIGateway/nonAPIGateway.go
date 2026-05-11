@@ -79,7 +79,6 @@ func MitigateNonAPIGateway(graphString string, selectedNodes []string) (string, 
 						}
 						
 					}
-					break
 				}
 			}
 		}

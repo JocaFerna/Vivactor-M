@@ -59,6 +59,7 @@ func MitigateCyclicDependency(graphString string, selectedNodes []string) (strin
 	unstableServices := make(map[string]bool)
 	// Eliminate any edges within the selected nodes and create new edges from the API Gateway to the selected nodes
 	for i, _ := range nodeMap {
+		fmt.Printf("Processing node: %s\n", nodeMap[i].Label)
 		unstableServices[utils.SanitizeName(nodeMap[i].Label)] = true
 		node1 := nodeMap[i]
 		for j := i + 1; j < len(nodeMap); j++ {
@@ -66,6 +67,7 @@ func MitigateCyclicDependency(graphString string, selectedNodes []string) (strin
 			// Eliminate edge between node1 and node2 if it exists
 			for k, edge := range graph.Edges {
 				if (edge.Source == node1.Id && edge.Target == node2.Id) || (edge.Source == node2.Id && edge.Target == node1.Id) {
+					fmt.Printf("Removing edge between %s and %s\n", node1.Label, node2.Label)
 					graph.Edges = append(graph.Edges[:k], graph.Edges[k+1:]...)
 					if edge.Source == node1.Id {
 						err := utils.RemoveCallToService(node1,node2,basePath)
@@ -79,7 +81,6 @@ func MitigateCyclicDependency(graphString string, selectedNodes []string) (strin
 						}
 						
 					}
-					break
 				}
 			}
 		}

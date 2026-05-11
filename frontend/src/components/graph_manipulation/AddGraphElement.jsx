@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useGlobalStore } from '../../store/useGlobalStore';
+import { triggerArchUpdateWithoutModal } from '../modal/UpdateArchModal';
 
 const AddGraphElement = () => {
     const [activeTab, setActiveTab] = useState('node');
@@ -11,7 +12,8 @@ const AddGraphElement = () => {
         label: '', 
         type: 'BasicNode', 
         language: 'java',
-        orderOfMagnitudeOfFiles: '' 
+        orderOfMagnitudeOfFiles: '', 
+        port: '8080' // Default port value
     });
 
     // Edge Form State
@@ -41,6 +43,7 @@ const AddGraphElement = () => {
                 selfManagedLibraries: graphData.systemContext.selfManagedLibraries || [],
                 servicesSeparatedByBusinessDomain: !!graphData.systemContext.servicesSeparatedByBusinessDomain
             });
+            console.log("System context updated in form:", graphData.systemContext);
         }
     }, [graphData]); 
 
@@ -50,14 +53,18 @@ const AddGraphElement = () => {
         e.preventDefault();
         var newNode = {}
 
+        // Get the current length of nodes to create a unique ID
+        const nodeCount = (graphData?.nodes?.length + 1) || 0;
+
         if (nodeForm.type !== "DatabaseNode") {
             newNode = {
-                id: nodeForm.id || `node-${Date.now()}`,
+                id: `${nodeCount}` || `node-${Date.now()}`,
                 label: nodeForm.label,
                 type: nodeForm.type,
                 properties: { 
                     language: nodeForm.language, 
-                    orderOfMagnitudeOfFiles: nodeForm.orderOfMagnitudeOfFiles 
+                    orderOfMagnitudeOfFiles: nodeForm.orderOfMagnitudeOfFiles,
+                    port: nodeForm.port
                 }
             };
         }
@@ -69,10 +76,13 @@ const AddGraphElement = () => {
         
             }
         }
+        console.log("Adding new node:", newNode);
         useGlobalStore.setState({
-            graphData: { ...graphData, nodes: [...graphData.nodes, newNode] }
+            graphData: { ...graphData, nodes: [...graphData.nodes, newNode] },
+            updateSuggestion: true // Set update suggestion to true after adding a node
         });
-        setNodeForm({ id: '', label: '', type: 'BasicNode', language: 'java', orderOfMagnitudeOfFiles: '' });
+        setNodeForm({ id: '', label: '', type: 'BasicNode', language: 'java', orderOfMagnitudeOfFiles: '', port: '8080' });
+        triggerArchUpdateWithoutModal(); // Trigger architecture update after adding a node
     };
 
     const handleAddEdge = (e) => {
@@ -83,11 +93,14 @@ const AddGraphElement = () => {
             endpoint: edgeForm.endpoint,
             properties: { callDefinitionInSource: edgeForm.callDefinitionInSource, method: edgeForm.method }
         };
+        console.log("Adding new edge:", newEdge);
 
         useGlobalStore.setState({
-            graphData: { ...graphData, edges: [...graphData.edges, newEdge] }
+            graphData: { ...graphData, edges: [...graphData.edges, newEdge] },
+            updateSuggestion: true // Set update suggestion to true after adding an edge
         });
         setEdgeForm({ source: '', target: '', endpoint: '', callDefinitionInSource: '', method: 'GET' });
+        triggerArchUpdateWithoutModal(); // Trigger architecture update after adding an edge
     };
 
     const handleEditSystem = (e) => {
@@ -96,8 +109,10 @@ const AddGraphElement = () => {
             graphData: { 
                 ...graphData, 
                 systemContext: { ...systemForm } 
-            }
+            },
+            updateSuggestion: true // Set update suggestion to true after editing system context
         });
+        triggerArchUpdateWithoutModal(); // Trigger architecture update after editing system context
         alert("System configuration updated successfully!");
     };
 
@@ -144,8 +159,7 @@ const AddGraphElement = () => {
     };
 
     return (
-        <div className="absolute top-4 right-4 z-50 p-4 bg-slate-800/95 backdrop-blur-sm border border-slate-700 rounded-lg shadow-xl w-80 text-white max-h-[90vh] overflow-y-auto">
-            {/* Tabs Navigation */}
+<div className="w-80 p-4 bg-slate-800/95 backdrop-blur-sm border border-slate-700 rounded-lg shadow-xl text-white max-h-full overflow-y-auto">            {/* Tabs Navigation */}
             <div className="flex mb-4 border-b border-slate-700">
                 {['node', 'edge', 'system'].map((tab) => (
                     <button 
@@ -185,12 +199,21 @@ const AddGraphElement = () => {
                             <option value="python">Python</option>
                             <option value="javascript">JavaScript</option>
                             <option value="html">HTML</option>
-                            <option value="traefik">Traefik</option>
                         </select>
                     </div>}
                     {nodeForm.type !== "DatabaseNode" &&
                         <input className="w-full p-2 border rounded bg-white" placeholder="Magnitude (10^0)" value={nodeForm.orderOfMagnitudeOfFiles} onChange={e => setNodeForm({...nodeForm, orderOfMagnitudeOfFiles: e.target.value})} pattern="10\^[0-9]+" required />
                     }
+                    <div>
+                        <label className="block text-xs font-medium text-slate-400 mb-1">Port</label>
+                        <input 
+                            className="w-full p-2 border rounded bg-white" 
+                            placeholder="Port (optional, e.g. 8080)" 
+                            value={nodeForm.port}
+                            onChange={e => setNodeForm({...nodeForm, port: e.target.value})}
+                            required 
+                        />
+                    </div>
                     <button type="submit" className="w-full py-2 text-white bg-blue-600 rounded hover:bg-blue-700 font-medium transition-colors">Add Node</button>
                 </form>
             )}
@@ -200,11 +223,11 @@ const AddGraphElement = () => {
                 <form onSubmit={handleAddEdge} className="space-y-3 text-black">
                     <select className="w-full p-2 border rounded bg-white" value={edgeForm.source} onChange={e => setEdgeForm({...edgeForm, source: e.target.value})} required>
                         <option value="">Select Source</option>
-                        {graphData?.nodes?.map(n => <option key={n.id} value={n.id}>{n.label}</option>)}
+                        {graphData?.nodes?.map(n => <option key={n.label} value={n.id}>{n.label}</option>)}
                     </select>
                     <select className="w-full p-2 border rounded bg-white" value={edgeForm.target} onChange={e => setEdgeForm({...edgeForm, target: e.target.value})} required>
                         <option value="">Select Target</option>
-                        {graphData?.nodes?.map(n => <option key={n.id} value={n.id}>{n.label}</option>)}
+                        {graphData?.nodes?.map(n => <option key={n.label} value={n.id}>{n.label}</option>)}
                     </select>
                     <input className="w-full p-2 border rounded bg-white" placeholder="Endpoint (/api/v1)" value={edgeForm.endpoint} onChange={e => setEdgeForm({...edgeForm, endpoint: e.target.value})} required />
                     <input className="w-full p-2 border rounded bg-white" placeholder="URL of Call" value={edgeForm.callDefinitionInSource} onChange={e => setEdgeForm({...edgeForm, callDefinitionInSource: e.target.value})} required />

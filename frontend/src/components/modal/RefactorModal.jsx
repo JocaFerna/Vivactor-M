@@ -78,7 +78,11 @@ const RefactorModal = ({ isOpen, onClose, typeOfRefactor }) => {
                 display: node.label || node.id 
             })) || [];
         }
-        
+        else if (typeOfRefactor === "cyclicDependency") {
+            // Add a space between each service name in the cyclic dependency for better readability
+            const rawList = Array.isArray(smellData) ? smellData : (smellData ? Object.keys(smellData) : []);
+            return rawList.map(item => ({ id: item, display: item.join(' -> ') }));
+        }   
         const rawList = Array.isArray(smellData) ? smellData : (smellData ? Object.keys(smellData) : []);
         return rawList.map(item => ({ id: item, display: item }));
     }, [smellData, nodes, typeOfRefactor]);

@@ -158,12 +158,11 @@ const ArchitectureSmellsBox = () => {
 
   return (
     <div className={`
-      fixed bottom-4 right-4 left-4 sm:left-auto sm:bottom-6 sm:right-4
-      w-80 max-h-[500px] flex flex-col
+      w-80 max-h-full flex flex-col
       bg-slate-900 border ${hasError ? 'border-red-500' : 'border-slate-700'} 
-      rounded-lg shadow-2xl text-white z-50 transition-all duration-300
+      rounded-lg shadow-2xl text-white transition-all duration-300
       ${!isEmulating ? 'opacity-50 grayscale-[0.5]' : 'opacity-100'}
-    `}>  
+  `}>
       <div className="flex items-center justify-between p-4 border-b border-slate-700 bg-slate-900 rounded-t-lg">
         <h3 className={`text-sm font-bold uppercase tracking-wider ${hasError ? 'text-red-500' : 'text-red-400'}`}>
           Architecture Smells
