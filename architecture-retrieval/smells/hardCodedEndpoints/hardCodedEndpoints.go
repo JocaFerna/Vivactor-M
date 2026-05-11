@@ -18,11 +18,36 @@ func DetectHardCodedEndpoints(graph string) ([]string, error) {
 	var hardCodedEndpoints []string
 	for _, edge := range graphStruct.Edges {
 		call := edge.Properties.CallDefinitionInSource
+		// Check if the call is to OR from a database.
+		if isDatabaseCall(edge, graphStruct) {
+			continue
+		}
 		if isHardCodedEndpoint(call) {
 			hardCodedEndpoints = append(hardCodedEndpoints, call)
 		}
 	}
 	return hardCodedEndpoints, nil
+
+}
+
+func isDatabaseCall(edge graphparsing.Edge, graphStruct graphparsing.Graph) bool {
+	// Get nodes.
+	sourceNode, err := graphparsing.GetNodeById(graphStruct, edge.Source)
+	if err != nil {
+		return false
+	}
+	targetNode, err := graphparsing.GetNodeById(graphStruct, edge.Target)
+	if err != nil {
+		return false
+	}
+	// Check if either node is a database.
+	if sourceNode.Type == "DatabaseNode" {
+		return true
+	}
+	if targetNode.Type == "DatabaseNode" {
+		return true
+	}
+	return false
 }
 
 // Checks if the call has either

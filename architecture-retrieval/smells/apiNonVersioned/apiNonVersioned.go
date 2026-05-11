@@ -18,6 +18,9 @@ func DetectApiNonVersioned(graph string) ([]string, error) {
 
 	var nonVersionedApis []string
 	for _, edge := range graphStruct.Edges {
+		if isDatabaseCall(edge, graphStruct) {
+			continue
+		}
 		if isApiNonVersioned(edge.Properties.CallDefinitionInSource) {
 			nonVersioned[edge.Properties.CallDefinitionInSource] = struct{}{}
 		}
@@ -38,5 +41,25 @@ func isApiNonVersioned(path string) bool {
 	}
 	matched, _ = regexp.MatchString(b, path)
 	return !matched
+}
+
+func isDatabaseCall(edge graphparsing.Edge, graphStruct graphparsing.Graph) bool {
+	// Get nodes.
+	sourceNode, err := graphparsing.GetNodeById(graphStruct, edge.Source)
+	if err != nil {
+		return false
+	}
+	targetNode, err := graphparsing.GetNodeById(graphStruct, edge.Target)
+	if err != nil {
+		return false
+	}
+	// Check if either node is a database.
+	if sourceNode.Type == "DatabaseNode" {
+		return true
+	}
+	if targetNode.Type == "DatabaseNode" {
+		return true
+	}
+	return false
 }
 	

@@ -1,27 +1,60 @@
 import React, { useState, useEffect } from 'react';
-import { motion } from "motion/react";
 import { X, CheckCircle2, Loader2, RefreshCw, Activity, ZapOff } from 'lucide-react';
 import { useGlobalStore } from '../../store/useGlobalStore';
+
+// --- Global Tracking Variables (Outside the Component) ---
+let updateTimeout = null;
+let isExecuting = false;
+let needsAnotherUpdate = false;
+
+/**
+ * Internal Executor: Handles the actual async loop
+ */
+const runUpdateSequence = async () => {
+    // 1. If already busy, mark that we need to go again once finished and bail
+    if (isExecuting) {
+        needsAnotherUpdate = true;
+        return;
+    }
+
+    isExecuting = true;
+    needsAnotherUpdate = false;
+
+    try {
+        // Pass a no-op to updateArchitectureLogic for status updates
+        await updateArchitectureLogic(() => {}); 
+    } catch (error) {
+        console.error("Sequential update failed:", error);
+    } finally {
+        isExecuting = false;
+        
+        // 2. If a request arrived while we were busy, trigger again immediately
+        if (needsAnotherUpdate) {
+            runUpdateSequence();
+        } else {
+            // 3. Only turn off the global indicator if no more updates are pending
+            useGlobalStore.setState({ updatingArchitecture: false });
+        }
+    }
+};
 
 /**
  * Orchestration Logic: Sequence Kill then Emulate
  */
-const updateArchitectureLogic = async (setStatus) => {
+export const updateArchitectureLogic = async (setStatus) => {
     try {
-        
-        // Reset states (Mirroring your kill logic)
+        // Reset states and set indicator
         useGlobalStore.setState({ 
             isArchitectureRunning: false, 
             isEmulating: false,
             updatingArchitecture: true,
-            // Reset all smells
+            // ... Reset all smells and JSON data as you have them ...
             refactoringOfNonAPIVersioned: false, refactoringOfCyclicDependency: false,
             refactoringOfEsbUsage: false, refactoringOfHardcodedEndpoints: false,
             refactoringOfInnapropriateServiceIntimacity: false, refactoringOfMicroserviceGreedy: false,
             refactoringOfSharedLibraries: false, refactoringOfSharedPersistency: false,
             refactoringOfWrongCuts: false, refactoringOfTooManyStandards: false,
             refactoringOfNoAPIGateway: false,
-            // Reset JSON data
             refactoringOfNonAPIVersionedJSON: null, refactoringOfCyclicDependencyJSON: null,
             refactoringOfEsbUsageJSON: null, refactoringOfHardcodedEndpointsJSON: null,
             refactoringOfInnapropriateServiceIntimacityJSON: null, refactoringOfMicroserviceGreedyJSON: null,
@@ -29,6 +62,7 @@ const updateArchitectureLogic = async (setStatus) => {
             refactoringOfWrongCutsJSON: null, refactoringOfTooManyStandardsJSON: null,
             refactoringOfNoAPIGatewayJSON: null 
         });
+
         const graphData = useGlobalStore.getState().graphData;
         const API_BASE = import.meta.env.VITE_ARCHITECTURAL_URL;
         const params = new URLSearchParams({ graph: JSON.stringify(graphData) });
@@ -36,43 +70,51 @@ const updateArchitectureLogic = async (setStatus) => {
         // --- STEP 1: KILL ---
         setStatus('killing');
         const killResponse = await fetch(`${API_BASE}/killArchitecture?${params.toString()}`);
-        if (!killResponse.ok) throw new Error("Failed to kill current architecture");
-        
-        
+        if (!killResponse.ok) throw new Error("Failed to kill");
 
-        // Small delay to allow Docker daemon to breathe
         await new Promise(resolve => setTimeout(resolve, 1000));
 
         // --- STEP 2: EMULATE ---
         setStatus('emulating');
         const emulateResponse = await fetch(`${API_BASE}/emulateArchitecture?${params.toString()}`);
-        if (!emulateResponse.ok) throw new Error("Failed to start new architecture");
+        if (!emulateResponse.ok) throw new Error("Failed to emulate");
 
-        useGlobalStore.setState({ isArchitectureRunning: true, isEmulating: true, updateSuggestion: false, updatingArchitecture: false }); // Clear update suggestion after successful update
+        useGlobalStore.setState({ 
+            isArchitectureRunning: true, 
+            isEmulating: true, 
+            updateSuggestion: false, 
+            updatingArchitecture: false 
+        });
         setStatus('success');
 
     } catch (error) {
         console.error("Update sequence failed:", error);
         setStatus('failed');
+        useGlobalStore.setState({ updatingArchitecture: false });
+        throw error;
     }
 };
 
 /**
- * Exported trigger method
+ * Trigger with Modal
  */
 export const triggerArchUpdate = () => {
     useGlobalStore.getState().setUpdateModalOpen(true);
 };
 
+/**
+ * Trigger without Modal (Optimized for rapid Graph changes)
+ */
 export const triggerArchUpdateWithoutModal = () => {
-    // Wait some seconds before triggering the update logic
-    useGlobalStore.setState({
-            isArchitectureRunning: false,
-            isEmulating: false,
-            updatingArchitecture: true
-    })
-    setTimeout(() => {
-        updateArchitectureLogic(() => {}); // Pass a no-op for status since we won't show the modal
+    // A. Debounce: Clear existing timer to wait for user to stop clicking
+    if (updateTimeout) clearTimeout(updateTimeout);
+
+    // B. Immediate Visual Feedback
+    useGlobalStore.setState({ updatingArchitecture: true });
+
+    // C. Set a 2-second "settle" period before attempting the Docker calls
+    updateTimeout = setTimeout(() => {
+        runUpdateSequence();
     }, 2000);
 };
 
