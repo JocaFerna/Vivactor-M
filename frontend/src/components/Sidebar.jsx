@@ -194,7 +194,7 @@ const Sidebar = () => {
           )}
 
           {isEmulating && (
-            <NavItem icon={<X size={20} className="text-gray-500" />} title="Kill Architecture" open={open} onClick={() => setIsKillModalOpen(true)} />
+            <NavItem icon={<X size={20} className="text-gray-500" />} title="Stop Architecture" open={open} onClick={() => setIsKillModalOpen(true)} />
           )}
 
           {/* DYNAMIC REFACTORING SECTION */}

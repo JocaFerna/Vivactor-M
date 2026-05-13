@@ -118,7 +118,7 @@ const KillArchModal = ({ isOpen, onClose }) => {
           </div>
         ) : (
           <>
-            <h2 className="text-xl font-bold text-slate-800 mb-4">Kill Architecture</h2>
+            <h2 className="text-xl font-bold text-slate-800 mb-4">Stop Architecture</h2>
             {/* Added flex-grow to the form so it fills the available space */}
             <form onSubmit={handleSubmit} className="space-y-4 flex-grow flex flex-col">
               {/* Labels for the textareas */}

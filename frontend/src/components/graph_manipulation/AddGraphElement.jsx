@@ -175,13 +175,16 @@ const AddGraphElement = () => {
             {/* Node Form */}
             {activeTab === 'node' && (
                 <form onSubmit={handleAddNode} className="space-y-3 text-black">
-                    <input 
-                        className="w-full p-2 border rounded bg-white" 
-                        placeholder="Label (Service Name)" 
-                        value={nodeForm.label}
-                        onChange={e => setNodeForm({...nodeForm, label: e.target.value, id: e.target.value.toLowerCase().replace(/\s+/g, '-')})}
-                        required 
-                    />
+                    <div>
+                        <label className="block text-xs font-medium text-slate-400 mb-1">Label</label>    
+                        <input 
+                            className="w-full p-2 border rounded bg-white" 
+                            placeholder="Label (Service Name)" 
+                            value={nodeForm.label}
+                            onChange={e => setNodeForm({...nodeForm, label: e.target.value, id: e.target.value.toLowerCase().replace(/\s+/g, '-')})}
+                            required 
+                        />
+                    </div>
                     <div>
                         <label className="block text-xs font-medium text-slate-400 mb-1">Type</label>
                         <select className="w-full p-2 border rounded bg-white" value={nodeForm.type} onChange={e => setNodeForm({...nodeForm, type: e.target.value})}>
@@ -202,8 +205,11 @@ const AddGraphElement = () => {
                         </select>
                     </div>}
                     {nodeForm.type !== "DatabaseNode" &&
-                        <input className="w-full p-2 border rounded bg-white" placeholder="Magnitude (10^0)" value={nodeForm.orderOfMagnitudeOfFiles} onChange={e => setNodeForm({...nodeForm, orderOfMagnitudeOfFiles: e.target.value})} pattern="10\^[0-9]+" required />
-                    }
+                        <div>
+                            <label className="block text-xs font-medium text-slate-400 mb-1">Magnitude</label>
+                            <input className="w-full p-2 border rounded bg-white" placeholder="Magnitude (10^0)" value={nodeForm.orderOfMagnitudeOfFiles} onChange={e => setNodeForm({...nodeForm, orderOfMagnitudeOfFiles: e.target.value})} pattern="10\^[0-9]+" required />
+                        </div>
+                        }
                     <div>
                         <label className="block text-xs font-medium text-slate-400 mb-1">Port</label>
                         <input 
@@ -221,23 +227,38 @@ const AddGraphElement = () => {
             {/* Edge Form */}
             {activeTab === 'edge' && (
                 <form onSubmit={handleAddEdge} className="space-y-3 text-black">
-                    <select className="w-full p-2 border rounded bg-white" value={edgeForm.source} onChange={e => setEdgeForm({...edgeForm, source: e.target.value})} required>
-                        <option value="">Select Source</option>
-                        {graphData?.nodes?.map(n => <option key={n.label} value={n.id}>{n.label}</option>)}
-                    </select>
-                    <select className="w-full p-2 border rounded bg-white" value={edgeForm.target} onChange={e => setEdgeForm({...edgeForm, target: e.target.value})} required>
-                        <option value="">Select Target</option>
-                        {graphData?.nodes?.map(n => <option key={n.label} value={n.id}>{n.label}</option>)}
-                    </select>
-                    <input className="w-full p-2 border rounded bg-white" placeholder="Endpoint (/api/v1)" value={edgeForm.endpoint} onChange={e => setEdgeForm({...edgeForm, endpoint: e.target.value})} required />
-                    <input className="w-full p-2 border rounded bg-white" placeholder="URL of Call" value={edgeForm.callDefinitionInSource} onChange={e => setEdgeForm({...edgeForm, callDefinitionInSource: e.target.value})} required />
-                    <select className="w-full p-2 border rounded bg-white" value={edgeForm.method} onChange={e => setEdgeForm({...edgeForm, method: e.target.value})}>
-                        <option value="GET">GET</option>
-                        <option value="POST">POST</option>
-                        <option value="PUT">PUT</option>
-                        <option value="DELETE">DELETE</option>
-                        <option value="PATCH">PATCH</option>
-                    </select>
+                    <div>
+                            <label className="block text-xs font-medium text-slate-400 mb-1">Source Node</label>
+                            <select className="w-full p-2 border rounded bg-white" value={edgeForm.source} onChange={e => setEdgeForm({...edgeForm, source: e.target.value})} required>
+                                <option value="">Select Source</option>
+                                {graphData?.nodes?.map(n => <option key={n.label} value={n.id}>{n.label}</option>)}
+                            </select>
+                    </div>
+                    <div>
+                        <label className="block text-xs font-medium text-slate-400 mb-1">Target Node</label>
+                        <select className="w-full p-2 border rounded bg-white" value={edgeForm.target} onChange={e => setEdgeForm({...edgeForm, target: e.target.value})} required>
+                            <option value="">Select Target</option>
+                            {graphData?.nodes?.map(n => <option key={n.label} value={n.id}>{n.label}</option>)}
+                        </select>
+                    </div>
+                    <div>
+                        <label className="block text-xs font-medium text-slate-400 mb-1">Endpoint</label>
+                        <input className="w-full p-2 border rounded bg-white" placeholder="Endpoint (/api/v1)" value={edgeForm.endpoint} onChange={e => setEdgeForm({...edgeForm, endpoint: e.target.value})} required />
+                    </div>
+                    <div>
+                        <label className="block text-xs font-medium text-slate-400 mb-1">URL of Call</label>
+                        <input className="w-full p-2 border rounded bg-white" placeholder="URL of Call" value={edgeForm.callDefinitionInSource} onChange={e => setEdgeForm({...edgeForm, callDefinitionInSource: e.target.value})} required />
+                    </div>
+                    <div>
+                        <label className="block text-xs font-medium text-slate-400 mb-1">HTTP Method</label>
+                        <select className="w-full p-2 border rounded bg-white" value={edgeForm.method} onChange={e => setEdgeForm({...edgeForm, method: e.target.value})}>
+                            <option value="GET">GET</option>
+                            <option value="POST">POST</option>
+                            <option value="PUT">PUT</option>
+                            <option value="DELETE">DELETE</option>
+                            <option value="PATCH">PATCH</option>
+                        </select>
+                    </div>
                     <button type="submit" className="w-full py-2 text-white bg-green-600 rounded hover:bg-green-700 font-medium transition-colors">Connect Services</button>
                 </form>
             )}
