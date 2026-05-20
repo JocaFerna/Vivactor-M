@@ -24,6 +24,8 @@ const NODE_ICONS = {
 const Graph = () => {
     const irData = useGlobalStore((state) => state.graphData);
 
+    const isEmulating = useGlobalStore((state) => state.isEmulating);
+
     // FIX: Using functional updates for Zustand to avoid dependency loops with irData
     const deleteNode = useCallback((nodeId) => {
         useGlobalStore.setState((state) => {
@@ -156,6 +158,19 @@ const Graph = () => {
                                         onClose();
                                     }}
                                 >
+                                {/* NEW FEATURE: Inspect Code Option */}
+                                {isNode && isEmulating && (
+                                    <button
+                                        className="w-full text-left px-3 py-2 text-xs text-slate-700 hover:bg-slate-50 flex items-center gap-2 transition-colors"
+                                        onClick={() => {
+                                            setInspectedNode(rawNode);
+                                            setIsCodeModalOpen(true);
+                                            onClose();
+                                        }}
+                                    >
+                                        <span>🔍</span> Inspect Source Code
+                                    </button>
+                                )}
                                     <span>🗑️</span> Delete {isNode ? 'Node' : 'Edge'}
                                 </button>
                                 <button

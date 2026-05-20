@@ -56,6 +56,7 @@ func Register() {
 		"/startArchitecture" : startHandler,
 		"/emulateArchitecture" : emulateHandler,
 		"/killArchitecture" : killHandler,
+		"/getSourceCode": getSourceCodeHandler,
 
 		// Smells Detection
 		"/smells/apiNonVersioned": apiNonVersionedSmellHandler,
@@ -89,6 +90,23 @@ func Register() {
 
 func home(writer http.ResponseWriter, request *http.Request) {
 	fmt.Fprintf(writer, "{\"message\": \"Hello World\"}")
+}
+
+// Get source code of a file -> Handling of the route
+func getSourceCodeHandler(writer http.ResponseWriter, request *http.Request) {
+	log.Println("Received get source code request")
+	graph := request.URL.Query().Get("graph")
+	service := request.URL.Query().Get("service")
+	content, err := os.ReadFile(filePath)
+	if err != nil {
+		log.Printf("Error reading file: %s\n", err.Error())
+		writer.WriteHeader(http.StatusInternalServerError)
+		writer.Write([]byte("{\"message\": \"Error reading file\"}"))
+		return
+	}
+	writer.Header().Set("Content-Type", "text/plain")
+	writer.WriteHeader(http.StatusOK)
+	writer.Write(content)
 }
 
 // Cyclic Dependency -> Handling of the route
