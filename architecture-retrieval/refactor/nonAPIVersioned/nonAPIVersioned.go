@@ -165,7 +165,7 @@ func MitigateNonAPIVersionedSmellsGraph(graph string, nonAPIVersionedSmells []st
 						return "", fmt.Errorf("error getting node by id %s: %v", edge.Source, err)
 					}
 
-					verified, err := VerifyCallsViaLogs(utils.SanitizeName(serviceName.Label), edge.Endpoint)
+					verified, err := VerifyCallsViaLogs(fmt.Sprintf("%s-%s-1", strings.ToLower(utils.SanitizeName(graphStruct.System.Name)), strings.ToLower(utils.SanitizeName(serviceName.Label))), edge.Endpoint)
 					if err != nil {
 						log.Printf("Error verifying calls via logs: %v", err)
 						verified = false
@@ -214,6 +214,7 @@ func addVersioningToCallDefinition(callDefinition string) string {
 }
 
 func VerifyCallsViaLogs(serviceName string, expectedEndpoint string) (bool, error) {
+	fmt.Println("Verifying calls via logs for service: ", serviceName, " and endpoint: ", expectedEndpoint)
     // Command: docker logs --tail 20 <serviceName>
     cmd := exec.Command("docker", "logs", "--tail", "20", serviceName)
     output, err := cmd.CombinedOutput()

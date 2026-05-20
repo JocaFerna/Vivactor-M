@@ -136,6 +136,8 @@ const Sidebar = () => {
     refactorOptions.filter(opt => opt.enabled)
   , [refactorOptions]);
 
+  const isUpdating = useGlobalStore((state) => state.updatingArchitecture);
+
   return (
     <div className="flex">
       <div className={`bg-slate-900 h-screen p-5 pt-8 relative duration-300 ${open ? "w-72" : "w-20"}`}>
@@ -198,7 +200,7 @@ const Sidebar = () => {
           )}
 
           {/* DYNAMIC REFACTORING SECTION */}
-          {activeRefactors.length > 0 && (
+          {activeRefactors.length > 0 && !isUpdating && (
             <>
               <div className={`mt-10 mb-2 ml-2 transition-opacity duration-200 ${!open ? "opacity-0" : "opacity-100"}`}>
                 <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Refactorings Detected</p>

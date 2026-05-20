@@ -211,6 +211,14 @@ func MergeNodeIntoAnother(graph Graph, nodeToBeMerged Node, nodeToReceive Node) 
 		}
 		graph.System.SelfManagedLibraries[i].ServicesUsingLibrary = updatedServices
 	}
+
+	// Remove any edges from the merged node.
+	for i, edge := range graph.Edges {
+		if edge.Source == nodeToBeMerged.Id || edge.Target == nodeToBeMerged.Id {
+			graph.Edges = RemoveEdge(graph.Edges, edge)
+			i-- // Decrement i to account for the removed edge
+		}
+	}
 	
 	
 	return graph

@@ -18,7 +18,7 @@ func GetMicroserviceGreedy(graph string) ([]string, error){
 	var microserviceGreedy []string
 	for _, node := range graphStruct.Nodes {
 		exponent := graphparsing.GetOrderOfMagnitudeOfFiles(node)
-		if node.Type == "BasicNode" && node.Properties.Language == "html" && exponent <= 1 {
+		if node.Type == "BasicNode" && node.Properties.Language == "html" && exponent <= 0 {
 			microserviceGreedy = append(microserviceGreedy, node.Label)
 		}
 	}
