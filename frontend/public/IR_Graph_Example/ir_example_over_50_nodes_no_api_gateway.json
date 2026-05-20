@@ -13,7 +13,7 @@
     { "id": "11", "label": "shipping-calculator-service", "type": "BasicNode", "properties": { "language": "python", "orderOfMagnitudeOfFiles": "10^2", "port": "8080" } },
     { "id": "12", "label": "tracking-service", "type": "BasicNode", "properties": { "language": "python", "orderOfMagnitudeOfFiles": "10^2", "port": "8080" } },
     { "id": "13", "label": "label-generation-service", "type": "BasicNode", "properties": { "language": "java", "orderOfMagnitudeOfFiles": "10^2", "port": "8080" } },
-    { "id": "14", "label": "payment-gateway-service", "type": "BasicNode", "properties": { "language": "java", "orderOfMagnitudeOfFiles": "10^2", "port": "8080" } },
+    { "id": "14", "label": "payment-service", "type": "BasicNode", "properties": { "language": "java", "orderOfMagnitudeOfFiles": "10^2", "port": "8080" } },
     { "id": "15", "label": "refund-processing-service", "type": "BasicNode", "properties": { "language": "java", "orderOfMagnitudeOfFiles": "10^2", "port": "8080" } },
     { "id": "16", "label": "billing-invoice-service", "type": "BasicNode", "properties": { "language": "java", "orderOfMagnitudeOfFiles": "10^2", "port": "8080" } },
     { "id": "17", "label": "email-notification-service", "type": "BasicNode", "properties": { "language": "python", "orderOfMagnitudeOfFiles": "10^1", "port": "8080" } },

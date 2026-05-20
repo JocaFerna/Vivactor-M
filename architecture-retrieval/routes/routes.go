@@ -157,9 +157,9 @@ func inapropriateServiceIntimacityRefactorHandler(writer http.ResponseWriter, re
 	}
 }
 
-// Refactor of Non API Versioned -> Handling of the route
+// Refactor of Non API Gateway -> Handling of the route
 func nonAPIGatewayRefactorHandler(writer http.ResponseWriter, request *http.Request) {
-	log.Println("Received mitigate non API versioned smells request")
+	log.Println("Received mitigate non API gateway smells request")
 	graph := request.URL.Query().Get("graph")
 	nonAPIVersionedSmells := request.URL.Query().Get("noAPIGatewaySmells")
 	// Remove [ and ] from the nonAPIVersionedSmells string

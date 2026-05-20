@@ -186,7 +186,7 @@ const RefactorModal = ({ isOpen, onClose, typeOfRefactor }) => {
                                             )}
                                         </div>
                                     </label>
-                                )) : <p className="text-sm text-slate-500 italic p-4 text-center">No components detected for refactoring.</p>}
+                                )) : <p className="text-sm text-slate-500 italic p-4 text-center">No components needed to be specified for refactoring.</p>}
                             </div>
                             
                             <div className="flex items-center justify-between px-1">

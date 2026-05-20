@@ -24,7 +24,7 @@ func MitigateNonAPIGateway(graphString string, selectedNodes []string) (string, 
 		nodeLabel = strings.TrimPrefix(nodeLabel, "\"")
 		nodeLabel = strings.TrimSuffix(nodeLabel, "\"")
 
-		node, err := graphparsing.GetNodeByLabel(graph, nodeLabel)
+		node, err := graphparsing.GetNodeById(graph, nodeLabel)
 		if err != nil {
 			return "", fmt.Errorf("Error: Node with ID %s not found in the graph", nodeLabel)
 		}
