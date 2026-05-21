@@ -4,6 +4,7 @@ import (
 	"architecture-retrieval/architecture"
 	"architecture-retrieval/architecture/emulation"
 	kill "architecture-retrieval/architecture/kill"
+	"architecture-retrieval/architecture/readFile"
 
 	"architecture-retrieval/refactor/nonAPIVersioned"
 	hardCodedEnpointsRefactor "architecture-retrieval/refactor/hardCodedEndpoints"
@@ -97,7 +98,8 @@ func getSourceCodeHandler(writer http.ResponseWriter, request *http.Request) {
 	log.Println("Received get source code request")
 	graph := request.URL.Query().Get("graph")
 	service := request.URL.Query().Get("service")
-	content, err := os.ReadFile(filePath)
+	content, err := readFile.ReadFile(graph, service)
+	
 	if err != nil {
 		log.Printf("Error reading file: %s\n", err.Error())
 		writer.WriteHeader(http.StatusInternalServerError)
@@ -106,7 +108,7 @@ func getSourceCodeHandler(writer http.ResponseWriter, request *http.Request) {
 	}
 	writer.Header().Set("Content-Type", "text/plain")
 	writer.WriteHeader(http.StatusOK)
-	writer.Write(content)
+	writer.Write([]byte(content))
 }
 
 // Cyclic Dependency -> Handling of the route

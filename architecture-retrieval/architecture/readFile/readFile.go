@@ -2,6 +2,7 @@ package readFile
 
 import (
 	graphparsing "architecture-retrieval/architecture/graphParsing"
+	"os"
 )
 
 func ReadFile(graphData string, serviceName string) (string, error) {
@@ -15,7 +16,15 @@ func ReadFile(graphData string, serviceName string) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	// Read the source code from the file path using I/O operations
+	if sourceCodePath == "Database" {
+		return "This service is a Database and does not have source code to display.", nil
+	}
+	// Read the source code from the file path and return it as a string
+	bytes, err := os.ReadFile(sourceCodePath)
+	if err != nil {
+		return "", err
+	}
 
-	return sourceCode, nil
+	// Convert the byte slice directly to a standard string
+	return string(bytes), nil
 }

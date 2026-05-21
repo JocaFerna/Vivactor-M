@@ -108,11 +108,12 @@ const RefactorModal = ({ isOpen, onClose, typeOfRefactor }) => {
 
     const handleSubmit = async (e) => {
         e.preventDefault();
+        if (status === 'loading') return;
         setStatus('loading');
         try {
             await refactorSoftware('', typeOfRefactor, selectedRefactors);
             setStatus('success');
-        } catch (err) { setStatus('failed'); }
+        } catch (err) { console.error("Refactoring failed:", err); setStatus('failed'); }
     };
 
     const getTitle = () => {

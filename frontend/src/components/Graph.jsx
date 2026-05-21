@@ -1,8 +1,10 @@
-import React, { useMemo, useCallback } from 'react';
+import React, { useMemo, useCallback, useState } from 'react';
 
 import { GraphCanvas, lightTheme } from 'reagraph'; 
 import { useGlobalStore } from '../store/useGlobalStore';
 import { triggerArchUpdateWithoutModal } from "./modal/UpdateArchModal"; // Ensure the update logic is imported so it can be triggered from the context menu
+import ViewCodeModal from './modal/ViewCodeModal'; // Import the code inspection modal
+
 
 const NODE_ICONS = {
     DatabaseNode: 'https://cdn-icons-png.flaticon.com/512/9850/9850774.png',
@@ -23,7 +25,8 @@ const NODE_ICONS = {
 
 const Graph = () => {
     const irData = useGlobalStore((state) => state.graphData);
-
+    const [isCodeModalOpen, setIsCodeModalOpen] = useState(false);
+    const [inspectedNode, setInspectedNode] = useState(null);
     const isEmulating = useGlobalStore((state) => state.isEmulating);
 
     // FIX: Using functional updates for Zustand to avoid dependency loops with irData
@@ -138,6 +141,8 @@ const Graph = () => {
                     contextMenu={({ data, onClose }) => {
                         // Determine if we are clicking a node or an edg
                         const isNode = data.source === undefined
+                        // Look up raw store node to get access to properties metadata
+                        const rawNode = isNode ? irData.nodes.find(n => n.id === data.id) : null;
                         return (
                             <div className="bg-white shadow-xl border border-slate-200 rounded-md py-1 min-w-[160px] text-slate-800">
                                 {/* Header */}
@@ -158,6 +163,10 @@ const Graph = () => {
                                         onClose();
                                     }}
                                 >
+                                
+                                
+                                    <span>🗑️</span> Delete {isNode ? 'Node' : 'Edge'}
+                                </button>
                                 {/* NEW FEATURE: Inspect Code Option */}
                                 {isNode && isEmulating && (
                                     <button
@@ -171,8 +180,6 @@ const Graph = () => {
                                         <span>🔍</span> Inspect Source Code
                                     </button>
                                 )}
-                                    <span>🗑️</span> Delete {isNode ? 'Node' : 'Edge'}
-                                </button>
                                 <button
                                     className="w-full text-left px-3 py-2 text-xs text-slate-500 hover:bg-slate-50 border-t border-slate-50 mt-1"
                                     onClick={onClose}
@@ -184,6 +191,15 @@ const Graph = () => {
                     }}
                 />
             )}
+            {/* Render the ViewCodeModal safely attached to the Graph view root */}
+            <ViewCodeModal 
+                isOpen={isCodeModalOpen} 
+                onClose={() => {
+                    setIsCodeModalOpen(false);
+                    setInspectedNode(null);
+                }} 
+                selectedNode={inspectedNode} 
+            />
         </div>
     );
 }; 
