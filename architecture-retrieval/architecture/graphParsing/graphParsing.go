@@ -231,3 +231,45 @@ func SanitizeName(name string) string {
 	sanitized = strings.ReplaceAll(sanitized, "_", "")
 	return sanitized
 }
+
+func GetServiceSourceCodePath(graph Graph, serviceName string) (string, error) {
+	// Get the language of the service from the graph
+	var lang string
+	// Get the type.
+	var typee string
+	for _, node := range graph.Nodes {
+		if node.Label == serviceName {
+			lang = node.Properties.Language
+			typee = node.Type
+			break
+		}
+	}
+	// If lang not defined, we assume it is a DB.
+	if typee == "DatabaseNode" {
+		return "Database", nil
+	}
+	// 1. Configuration: mapping languages to their actual code extensions
+	extensions := map[string]string{
+		"java":       ".java",
+		"python":     ".py",
+		"javascript": ".js",
+		"golang":     ".go",
+		"html":       ".html",
+		"plaintext":  ".txt",
+	}
+
+	ext, ok := extensions[lang]
+	if !ok {
+		// If it's HTML or plain text, a DB call doesn't make sense, so we skip
+		return "", fmt.Errorf("Unsupported language: %s", lang)
+	}
+
+	for _, node := range graph.Nodes {
+		if node.Label == serviceName {
+			basePath := GetBasePathOfGraph(graph)
+			filePath := filepath.Join(basePath,SanitizeName(serviceName), "main"+ext)
+			return filePath, nil
+		}
+	}
+	return "", fmt.Errorf("Service with name %s not found", serviceName)
+}

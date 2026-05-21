@@ -59,67 +59,84 @@ func MitigateCyclicDependency(graphString string, selectedNodes []string) (strin
 	unstableServices := make(map[string]bool)
 	// Eliminate any edges within the selected nodes and create new edges from the API Gateway to the selected nodes
 	for i, _ := range nodeMap {
-		fmt.Printf("Processing node: %s\n", nodeMap[i].Label)
-		unstableServices[utils.SanitizeName(nodeMap[i].Label)] = true
-		node1 := nodeMap[i]
-		for j := i + 1; j < len(nodeMap); j++ {
-			node2 := nodeMap[j]
-			// Eliminate edge between node1 and node2 if it exists
-			for k, edge := range graph.Edges {
-				if (edge.Source == node1.Id && edge.Target == node2.Id) || (edge.Source == node2.Id && edge.Target == node1.Id) {
-					fmt.Printf("Removing edge between %s and %s\n", node1.Label, node2.Label)
-					graph.Edges = append(graph.Edges[:k], graph.Edges[k+1:]...)
-					if edge.Source == node1.Id {
-						err := utils.RemoveCallToService(node1,node2,basePath)
-						if err != nil {
-							return "", fmt.Errorf("Error removing call to service: %v", err)
-						}
-					} else {
-						err := utils.RemoveCallToService(node2,node1,basePath)
-						if err != nil {
-							return "", fmt.Errorf("Error removing call to service: %v", err)
-						}
-						
-					}
-				}
-			}
-		}
-			// Create new edges from the API Gateway to the selected nodes
-			newEdgeRequest := graphparsing.Edge{
-				Source: node1.Id,
-				Target: apiGatewayNode.Id,
-				Endpoint: fmt.Sprintf("/api/v1/request/%s", graphparsing.SanitizeName(node1.Label)),
-				Properties: graphparsing.EdgeProperties{
-					CallDefinitionInSource: fmt.Sprintf("http://%s:8080/api/v1/request/%s", apiLabelName, graphparsing.SanitizeName(node1.Label)),
-					Method: "GET",
-				},
-			}
-			// Get node1 port
-			node1Port, err := utils.GetPortFromNode(node1)
-			if err != nil {
-				return "", fmt.Errorf("Error getting port from node: %v", err)
-			}
+    fmt.Printf("Processing node: %s\n", nodeMap[i].Label)
+    unstableServices[utils.SanitizeName(nodeMap[i].Label)] = true
+    node1 := nodeMap[i]
+    
+    for j := i + 1; j < len(nodeMap); j++ {
+        node2 := nodeMap[j]
+        
+        // In-place slice filtering pattern to safely mutate graph.Edges
+        wIdx := 0
+        for _, edge := range graph.Edges {
+            isTargetEdge := (edge.Source == node1.Id && edge.Target == node2.Id) || 
+                            (edge.Source == node2.Id && edge.Target == node1.Id)
+            
+            if isTargetEdge {
+                fmt.Printf("Removing edge between %s and %s\n", node1.Label, node2.Label)
+                
+                // Track errors locally during mutation
+                var err error
+                if edge.Source == node1.Id {
+                    err = utils.RemoveCallToService(node1, node2, basePath)
+                } else {
+                    err = utils.RemoveCallToService(node2, node1, basePath)
+                }
+                
+                if err != nil {
+                    return "", fmt.Errorf("Error removing call to service: %v", err)
+                }
+                
+                // Skip keeping this edge (effectively deletes it)
+                continue
+            }
+            
+            // Keep the non-matching edges
+            graph.Edges[wIdx] = edge
+            wIdx++
+        }
+        // Truncate the slice to the final write index position safely
+        graph.Edges = graph.Edges[:wIdx]
+    }
 
-			newEdgeResponse := graphparsing.Edge{
-				Source: apiGatewayNode.Id,
-				Target: node1.Id,
-				Endpoint: fmt.Sprintf("/api/v1/response/%s", graphparsing.SanitizeName(node1.Label)),
-				Properties: graphparsing.EdgeProperties{
-					CallDefinitionInSource: fmt.Sprintf("http://%s:%s/api/v1/response/%s",graphparsing.SanitizeName(node1.Label), strconv.Itoa(node1Port), graphparsing.SanitizeName(node1.Label)),
-					Method: "POST",
-				},
-			}
-			graph.Edges = append(graph.Edges, newEdgeRequest)
-			err = utils.HandleCallFromNode(node1, apiGatewayNode, newEdgeRequest, basePath)
-			if err != nil {
-				return "", fmt.Errorf("Error handling call from node: %v", err)
-			}
-			graph.Edges = append(graph.Edges, newEdgeResponse)
-			err = utils.HandleCallFromNode(apiGatewayNode, node1, newEdgeResponse, basePath)
-			if err != nil {
-				return ""	, fmt.Errorf("Error handling call to node: %v", err)
-			}
-	}
+    // --- Create new edges from the API Gateway to the selected nodes ---
+    newEdgeRequest := graphparsing.Edge{
+        Source:   node1.Id,
+        Target:   apiGatewayNode.Id,
+        Endpoint: fmt.Sprintf("/api/v1/request/%s", graphparsing.SanitizeName(node1.Label)),
+        Properties: graphparsing.EdgeProperties{
+            CallDefinitionInSource: fmt.Sprintf("http://%s:8080/api/v1/request/%s", apiLabelName, graphparsing.SanitizeName(node1.Label)),
+            Method:                 "GET",
+        },
+    }
+
+    node1Port, err := utils.GetPortFromNode(node1)
+    if err != nil {
+        return "", fmt.Errorf("Error getting port from node: %v", err)
+    }
+
+    newEdgeResponse := graphparsing.Edge{
+        Source:   apiGatewayNode.Id,
+        Target:   node1.Id,
+        Endpoint: fmt.Sprintf("/api/v1/response/%s", graphparsing.SanitizeName(node1.Label)),
+        Properties: graphparsing.EdgeProperties{
+            CallDefinitionInSource: fmt.Sprintf("http://%s:%s/api/v1/response/%s", graphparsing.SanitizeName(node1.Label), strconv.Itoa(node1Port), graphparsing.SanitizeName(node1.Label)),
+            Method:                 "POST",
+        },
+    }
+
+    graph.Edges = append(graph.Edges, newEdgeRequest)
+    err = utils.HandleCallFromNode(node1, apiGatewayNode, newEdgeRequest, basePath)
+    if err != nil {
+        return "", fmt.Errorf("Error handling call from node: %v", err)
+    }
+
+    graph.Edges = append(graph.Edges, newEdgeResponse)
+    err = utils.HandleCallFromNode(apiGatewayNode, node1, newEdgeResponse, basePath)
+    if err != nil {
+        return "", fmt.Errorf("Error handling call to node: %v", err)
+    }
+}
 	// Before Starting the new API Gateway service, we wait for a 40 seconds to ensure all changes are caught by watch
 	fmt.Println("Wait for services stable before starting the new API Gateway service...")
 	targetServices := make([]string, 0, len(unstableServices))

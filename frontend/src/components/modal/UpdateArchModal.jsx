@@ -43,6 +43,10 @@ const runUpdateSequence = async () => {
  */
 export const updateArchitectureLogic = async (setStatus) => {
     try {
+        if (!useGlobalStore.getState().isEmulating) {
+            // We don't need to kill/emulate, just skip.
+            return;
+        }
         // Reset states and set indicator
         useGlobalStore.setState({ 
             isArchitectureRunning: false, 
@@ -108,6 +112,10 @@ export const triggerArchUpdate = () => {
 export const triggerArchUpdateWithoutModal = () => {
     // A. Debounce: Clear existing timer to wait for user to stop clicking
     if (updateTimeout) clearTimeout(updateTimeout);
+
+    if (!useGlobalStore.getState().isEmulating) {
+        return;
+    }
 
     // B. Immediate Visual Feedback
     useGlobalStore.setState({ updatingArchitecture: true });
